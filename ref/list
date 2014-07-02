@@ -1,0 +1,39 @@
+@article{cooley1965algorithm,
+  title={An algorithm for the machine calculation of complex Fourier series},
+  author={Cooley, James W and Tukey, John W},
+  journal={Mathematics of computation},
+  volume={19},
+  number={90},
+  pages={297--301},
+  year={1965},
+  publisher={JSTOR}
+}
+Cooley, James W., and John W. Tukey. "An algorithm for the machine calculation of complex Fourier series." Mathematics of computation 19.90 (1965): 297-301.
+
+@article{duhamel1984split,
+  title={‘Split radix’FFT algorithm},
+  author={Duhamel, Pierre and Hollmann, Henk},
+  journal={Electronics Letters},
+  volume={20},
+  number={1},
+  pages={14--16},
+  year={1984},
+  publisher={IET}
+}
+Duhamel, Pierre, and Henk Hollmann. "‘Split radix’FFT algorithm." Electronics Letters 20.1 (1984): 14-16.
+
+@article{johnson2007modified,
+  title={A modified split-radix FFT with fewer arithmetic operations},
+  author={Johnson, Steven G and Frigo, Matteo},
+  journal={Signal Processing, IEEE Transactions on},
+  volume={55},
+  number={1},
+  pages={111--119},
+  year={2007},
+  publisher={IEEE}
+}
+Johnson, Steven G., and Matteo Frigo. "A modified split-radix FFT with fewer arithmetic operations." Signal Processing, IEEE Transactions on 55.1 (2007): 111-119.
+
+http://cnx.org/content/m12031/latest/
+Douglas L. Jones, "Split-radix FFT algorithms," Connexions web site (Nov. 2, 2006).
+
