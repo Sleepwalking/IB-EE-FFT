@@ -1,0 +1,15 @@
+R0 -> R0 + R1
+R1 -> R0 - R1
+R2 -> R2 + R3
+R3 -> R2 - R3
+
+I0 -> I0 + I1
+I1 -> I0 - I1
+I2 -> I2 + I3
+I3 -> I2 - I3
+
+xmm0: R0 R0 R2 R2
+xmm1: R1 R1 R3 R3
+xmm2: I0 I0 I2 I2
+xmm3: I1 I1 I3 I3
+xmm7:  1 -1  1 -1
