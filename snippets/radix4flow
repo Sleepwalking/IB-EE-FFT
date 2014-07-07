@@ -1,0 +1,131 @@
+# Original
+# R0 R1 R2 R3 I1 I3
+R0 <- +R0 +R1 +R2 +R3
+R1 <- +R0 +I1 -R2 -I3
+R2 <- +R0 -R1 +R2 -R3
+R3 <- +R0 -I1 -R2 +R3
+
+# I0 I1 I2 I3 R1 R3
+I0 <- +I0 +I1 +I2 +I3
+I1 <- +I0 -R1 -I2 +R3
+I2 <- +I0 -I1 +I2 -I3
+I3 <- +I0 +R1 -I2 -I3
+
+R1 R3 I1 I3
+
+"movaps %0, %%xmm0\n"
+"movaps %1, %%xmm1\n"
+"pshufd $0b00000000, %%xmm0, %%xmm2\n" //xmm2 = R0 R0 R0 R0
+"pshufd $0b10101010, %%xmm0, %%xmm4\n" //xmm4 = R2 R2 R2 R2
+"mulps  NPNP, %%xmm4\n" //xmm4 = -R2 R2 -R2 R2
+"pshufd $0b00000000, %%xmm1, %%xmm3\n" //xmm3 = I0 I0 I0 I0
+"pshufd $0b10101010, %%xmm1, %%xmm5\n" //xmm5 = R2 I2 I2 I2
+"mulps  NPNP, %%xmm5\n" //xmm5 = -I2 I2 -I2 I2
+"addps  %%xmm4, %%xmm2\n" //xmm2 = R0-R2 R0+R2 R0-R2 R0+R2
+"addps  %%xmm5, %%xmm3\n" //xmm3 = I0-I2 I0+I2 I0-I2 I0+I2
+"movaps %%xmm1, %%xmm6\n" //xmm6 = I3 I2 I1 I0
+"shufps $0b01110111, %%xmm0, %%xmm6\n" //xmm6 = R1 R3 I1 I3
+"pshufd $0b01110111, %%xmm6, %%xmm4\n" //xmm4 = I1 R1 I1 R1
+"pshufd $0b11011101, %%xmm6, %%xmm5\n" //xmm5 = R1 I1 R1 I1
+"mulps  NNPP, %%xmm4\n" //xmm4 = -I1 -R1 I1 R1
+"mulps  PNNP, %%xmm5\n" //xmm5 = R1 -I1 -R1 I1
+"addps  %%xmm4, %%xmm2\n" //xmm2 = R0-R2-I1 R0+R2-R1 R0-R2+I1 R0+R2+R1
+"addps  %%xmm5, %%xmm3\n" //xmm3 = I0-I2+R1 I0+I2-I1 I0-I2-R1 I0+I2+I1
+"pshufd $0b10100010, %%xmm6, %%xmm4\n" //xmm4 = R3 R3 I3 R3
+"pshufd $0b00001000, %%xmm6, %%xmm5\n" //xmm5 = I3 I3 R3 I3
+"mulps  PNNP, %%xmm4\n" //xmm4 = R3 -R3 -I3 R3
+"mulps  NNPP, %%xmm5\n" //xmm5 = -I3 -I3 R3 I3
+"addps  %%xmm4, %%xmm2\n" //xmm2 = R0-R2-I1+R3 R0+R2-R1-R3 R0-R2+I1-I3 R0+R2+R1+R3
+"addps  %%xmm5, %%xmm3\n" //xmm3 = I0-I2+R1-I3 I0+I2-I1-I3 I0-I2-R1+R3 I0+I2+I1-I3
+"movaps %%xmm2, %0\n"
+"movaps %%xmm3, %1\n"
+
+# TypeA
+# R0 R1 R2 R3 I1 I3
+R0 <- +R0 +R2 +R1 +R3
+R1 <- +R0 -R2 +I1 -I3
+R2 <- +R0 -R1 +R2 -R3
+R3 <- +R0 -R2 +R3 -I1
+
+# I0 I1 I2 I3 R1 R3
+I0 <- +I0 +I2 +I1 +I3
+I1 <- +I0 -I2 +R3 -R1
+I2 <- +I0 -I1 +I2 -I3
+I3 <- +I0 -I2 +R1 -I3
+
+       R0  R1  R1  R1 I1
+       R1  R2  R3  R3 I3
+           I1  I1  I1 R1
+           I2  I2  I3 R3
+              xmm6
+
+movaps %1, %%xmm0
+movaps %2, %%xmm1
+
+pshufd $0b00000000, %%xmm0, %%xmm2
+pshufd $0b00000000, %%xmm1, %%xmm3
+pshufd $0b10011010, %%xmm0, %%xmm4
+pshufd $0b10011010, %%xmm1, %%xmm5
+
+mulps  %%xmm7, %%xmm4
+mulps  %%xmm7, %%xmm5
+addps  %%xmm4, %%xmm2
+addps  %%xmm5, %%xmm3
+
+movaps %%xmm0, %%xmm6
+shufps $0b10011101, %%xmm1, %%xmm6
+
+movaps %%xmm6, %%xmm4
+shufps $0b11101001, %%xmm0, %%xmm4
+pshufd $0b00110110, %%xmm6, %%xmm5
+addps  %%xmm4, %%xmm2
+addps  %%xmm5, %%xmm3
+pshufd $0b01001110, %%xmm6, %%xmm6
+pshufd $0b00110111, %%xmm6, %%xmm4
+pshufd $0b01011001, %%xmm6, %%xmm5
+mulps  %%xmm7, %%xmm4
+mulps  %%xmm7, %%xmm5
+addps  %%xmm4, %%xmm2
+addps  %%xmm5, %%xmm3
+movaps %%xmm2, %1
+movaps %%xmm3, %2
+
+xmm0 <- R0 R1 R2 R3
+xmm1 <- I0 I1 I2 I3
+
+# TypeB
+# R0 R1 R2 R3 I1 I3
+R0 <- +R0 +R3 +R1 +R2
+R1 <- +R0 -R2 +I1 -I3
+R2 <- +R0 -R3 +R2 -R1
+R3 <- +R0 -R2 +R3 -I1
+
+# I0 I1 I2 I3 R1 R3
+I0 <- +I0 +I2 +I1 +I3
+I1 <- +I0 -I2 +R3 -R1
+I2 <- +I0 -I1 +I2 -I3
+I3 <- +I0 -I2 +R1 -I3
+
+movaps %1, %%xmm0
+movaps %2, %%xmm1
+
+pshufd $0b00000000, %%xmm0, %%xmm2
+pshufd $0b00000000, %%xmm1, %%xmm3
+pshufd $0b10111011, %%xmm0, %%xmm4
+pshufd $0b10011010, %%xmm1, %%xmm5
+
+mulps  %%xmm7, %%xmm5
+addps  %%xmm5, %%xmm3
+movaps %%xmm4, %%xmm5
+
+mulps  %%xmm7, %%xmm4
+addps  %%xmm4, %%xmm2
+
+movaps %%xmm1, %%xmm6
+shufps $0b10010111, %%xmm0, %%xmm6
+pshufd $0b
+
+  x           =  a + jb
+ jx = ja - b  = -b + ja
+-jx           =  b - ja
+
