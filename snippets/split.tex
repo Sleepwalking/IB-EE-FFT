@@ -1,0 +1,70 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+
+\section{DIT-Split Radix}
+
+\[X[k] = \underbrace{\sum_{n=0}^{N/2-1} x[2n] W_{N/2}^{nk}}_{\text{DFT}\{x[2n]\}}
+       + W_N^k \underbrace{\sum_{n=0}^{N/4-1} x[4n+1] W_{N/4}^{nk}}_{\text{DFT}\{x[4n+1]\}}
+       + W_N^{3k} \underbrace{\sum_{n=0}^{N/4-1} x[4n+3] W_{N/4}^{nk}}_{\text{DFT}\{x[4n+3]\}}\]
+
+\paragraph{Sub DFTs Remain Unchanged}
+
+\[\begin{split}
+W_{N/4}^{n(k+N/4)} & = e^{-j\frac{2\pi}{N/4}n(k+N/4)} \\
+& = e^{-j\frac{2\pi}{N/4}nk} \underbrace{e^{-j\frac{2\pi}{N/4}n(N/4)}}_{ e^{-j2\pi n} = 1} \\
+& = W_{N/4}^{nk}
+\end{split}\]
+
+\[W_{N/4}^{n(k+N/2)} = W_{N/4}^{nk}\]
+\[W_{N/4}^{n(k+3N/4)} = W_{N/4}^{nk}\]
+\[W_{N/2}^{n(k+N/2)} = W_{N/2}^{nk}\]
+
+\paragraph{Twiddle Factors}
+
+\[\begin{split}
+W_N^{k+N/4} & = e^{-j\frac{2\pi}{N}(k+N/4)} \\
+& = e^{-j\frac{2\pi}{N}k} \underbrace{e^{-j\frac{2\pi}{N}(N/4)}}_{ e^{-j\frac{\pi}{2}} = -j} \\
+& = -j W_{N}^k
+\end{split}\]
+
+\[W_N^{k+N/2} = -W_N^k\]
+\[W_N^{k+3N/4} = W_N^{k+N/2} W_N^{N/4} = W_N^{k+N/4} = j W_{N}^k\]
+
+\bigskip
+
+\[W_N^{3(k+N/4)} = W_N^{3k} W_N^{3N/4} = j W_N^{3k}\]
+\[W_N^{3(k+N/2)} = W_N^{3k} W_N^{3N/2} = -W_N^{3k}\]
+\[W_N^{3(k+3N/4)} = W_N^{3k} W_N^{3N/4} W_N^{3N/2} = -j W_N^{3k}\]
+
+\paragraph{The Complete Formula}
+
+\[\begin{split}
+  X[k] & = X_1[k] + W_N^k X_2[k] + W_N^{3k} X_3[k]\\
+  X[k + N/4] & = X_1[k + N/4] - jW_N^k X_2[k] + jW_N^{3k} X_3[k] \\
+  X[k + N/2] & = X_1[k] - W_N^k X_2[k] - W_N^{3k} X_3[k] \\
+  X[k + 3N/4] & = X_1[k + N/4] + jW_N^k X_2[k] - jW_N^{3k} X_3[k] \\
+\end{split}\]
+
+\paragraph{Rearranged Formula}
+
+\[\begin{split}
+  X[k] & = X_1[k] + \left(W_N^k X_2[k] + W_N^{3k} X_3[k]\right)\\
+  X[k + N/4] & = X_1[k + N/4] - \left(jW_N^k X_2[k] - jW_N^{3k} X_3[k]\right) \\
+  X[k + N/2] & = X_1[k] - \left(W_N^k X_2[k] + W_N^{3k} X_3[k]\right) \\
+  X[k + 3N/4] & = X_1[k + N/4] + \left(jW_N^k X_2[k] - jW_N^{3k} X_3[k]\right) \\
+\end{split}\]
+
+\section{8-Point Split Radix}
+
+\[\begin{split}
+  X[0] & = X_1[0] + X_2[0] + X_3[0]\\
+  X[1] & = X_1[1] + W_8 X_2[1] + W_8^3 X_3[1]\\
+  X[2] & = X_1[2] - j X_2[0] + j X_3[0]\\
+  X[3] & = X_1[3] - jW_8 X_2[1] + W_8^3 X_3[1]\\
+  X[4] & = X_1[0] - X_2[0] - X_3[0]\\
+  X[5] & = X_1[1] - W_8 X_2[1] - W_8^3 X_3[1]\\
+  X[6] & = X_1[2] + j X_2[0] - j X_3[0]\\
+  X[7] & = X_1[3] + jW_8 X_2[1] - j W_8^3 X_3[1]\\
+\end{split}\]
+\end{document}
