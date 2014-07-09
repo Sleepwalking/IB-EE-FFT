@@ -50,9 +50,16 @@ W_N^{k+N/4} & = e^{-j\frac{2\pi}{N}(k+N/4)} \\
 
 \[\begin{split}
   X[k] & = X_1[k] + \left(W_N^k X_2[k] + W_N^{3k} X_3[k]\right)\\
-  X[k + N/4] & = X_1[k + N/4] - \left(jW_N^k X_2[k] - jW_N^{3k} X_3[k]\right) \\
+  X[k + N/4] & = X_1[k + N/4] - j\left(W_N^k X_2[k] - W_N^{3k} X_3[k]\right) \\
   X[k + N/2] & = X_1[k] - \left(W_N^k X_2[k] + W_N^{3k} X_3[k]\right) \\
-  X[k + 3N/4] & = X_1[k + N/4] + \left(jW_N^k X_2[k] - jW_N^{3k} X_3[k]\right) \\
+  X[k + 3N/4] & = X_1[k + N/4] + j\left(W_N^k X_2[k] - W_N^{3k} X_3[k]\right) \\
+\end{split}\]
+
+\[\begin{split}
+  X[k] & = X_1[k] + \left(W_N^{3k} X_3[k] + W_N^k X_2[k]\right)\\
+  X[k + N/4] & = X_1[k + N/4] + j\left(W_N^{3k} X_3[k] - W_N^k X_2[k]\right) \\
+  X[k + N/2] & = X_1[k] - \left(W_N^{3k} X_3[k] + W_N^k X_2[k]\right) \\
+  X[k + 3N/4] & = X_1[k + N/4] - j\left(W_N^{3k} X_3[k] - W_N^k X_2[k]\right) \\
 \end{split}\]
 
 \section{8-Point Split Radix}
@@ -60,11 +67,41 @@ W_N^{k+N/4} & = e^{-j\frac{2\pi}{N}(k+N/4)} \\
 \[\begin{split}
   X[0] & = X_1[0] + X_2[0] + X_3[0]\\
   X[1] & = X_1[1] + W_8 X_2[1] + W_8^3 X_3[1]\\
-  X[2] & = X_1[2] - j X_2[0] + j X_3[0]\\
-  X[3] & = X_1[3] - jW_8 X_2[1] + W_8^3 X_3[1]\\
+  X[2] & = X_1[2] - jX_2[0] + j X_3[0]\\
+  X[3] & = X_1[3] - jW_8 X_2[1] + jW_8^3 X_3[1]\\
   X[4] & = X_1[0] - X_2[0] - X_3[0]\\
   X[5] & = X_1[1] - W_8 X_2[1] - W_8^3 X_3[1]\\
-  X[6] & = X_1[2] + j X_2[0] - j X_3[0]\\
-  X[7] & = X_1[3] + jW_8 X_2[1] - j W_8^3 X_3[1]\\
+  X[6] & = X_1[2] + jX_2[0] - jX_3[0]\\
+  X[7] & = X_1[3] + jW_8 X_2[1] - jW_8^3 X_3[1]\\
 \end{split}\]
+
+\newpage
+
+\subsection{Implementation Notes}\indent
+
+Compute these values first:
+
+\[v_1 = \{X_2[0], W_8 X_2[1], -jX_2[0], -jW_8 X_2[1]\}^T\]
+\[v_2 = \{X_3[0], W^3_8 X_3[1], jX_3[0], jW^3_8 X_3[1]\}^T\]
+
+Then,
+
+\[X[0:3] = X_1 + v_1 + v_2\]
+\[X[4:7] = X_1 - v_1 - v_2\]
+
+\paragraph{Values}
+
+\[\begin{split}
+	W_8 & = e^{-j\frac{2\pi}{8}} = \sqrt{2} - j\sqrt{2}\\
+	jW_8 & = je^{-j\frac{2\pi}{8}} = \sqrt{2} + j\sqrt{2}\\
+	W^3_8 & = e^{-j\frac{6\pi}{8}} = -\sqrt{2} - j\sqrt{2} = -jW_8\\
+	jW^3_8 & = je^{-j\frac{6\pi}{8}} = \sqrt{2} - j\sqrt{2} = W_8
+\end{split}\]
+
+\[w_1 = \{1, W_8, -j, -jW_8\}^T\]
+\[w_2 = \{1, W^3_8, j, jW^3_8\}^T = \{1, -jW_8, j, W_8\}^T\]
+
+\[(a + bj) * (c + dj) = ac - bd + j(ad + bc)\]
+\[(a + bj) * j = -b + aj\]
+
 \end{document}
