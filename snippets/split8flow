@@ -10,11 +10,6 @@ Output:
   I7 I6 I5 I4 I3 I2 I1 I0
             X
 
-0: R5*n-I5*n -I4 R5*n+I5*n R4
-1: R5*n+I5*n  R4 I5*n-R5*n I4
-3: R7*n+I7*n  I6 R7*n-I7*n R6
-4: I7*n-R7*n -R6 R7*n+I7*n I6
-
 I7 R7 R5 R5
 R7 I7 I5 I5
 R6 I6 R4 I4
@@ -23,10 +18,24 @@ I7 I7 R5 I5
 I6 R6 I4 R4
 
 v1:
-R: +R5*n -I5*n | -I4 | +R5*n +I5*n | +R4
-I: +R5*n +I5*n | +R4 | +I5*n -R5*n | +I4
+R: -R5*n +I5*n | +I4 | +R5*n +I5*n | +R4
+I: -R5*n -I5*n | -R4 | -R5*n +I5*n | +I4
 
 v2:
-R: +R7*n +I7*n | +I6 | +R7*n -I7*n | +R6
-I: +I7*n -R7*n | -R6 | +R7*n +I7*n | +I6
+R: +R7*n +I7*n | -I6 | -R7*n +I7*n | +R6
+I: -R7*n +I7*n | +R6 | -R7*n -I7*n | +I6
+
+-----
+
+v1+v2:
+
+R3: -R5*n +I5*n +R7*n +I7*n
+R2: +I4   -I6
+R1: +R5*n +I5*n -R7*n +I7*n
+R0: +R4   +R6
+
+I3: -R5*n -I5*n +I7*n -R7*n
+I2: -R4   +R6
+I1: +I5*n -R5*n -R7*n -I7*n
+I0: +I4   +I6
 
