@@ -39,3 +39,49 @@ I2: -R4   +R6
 I1: +I5*n -R5*n -R7*n -I7*n
 I0: +I4   +I6
 
+-----
+
+v1+v2:
+
+R3: -R5*n +I5*n +R7*n +I7*n
+R1: +R5*n +I5*n -R7*n +I7*n
+I3: -R5*n -I5*n -R7*n +I7*n
+I1: -R5*n +I5*n -R7*n -I7*n
+
+R2: +I4   -I6
+R0: +R4   +R6
+I2: -R4   +R6
+I0: +I4   +I6
+
+"movaps %2, %%xmm0\n" //xmm0: R7 R6 R5 R4
+"movaps %3, %%xmm1\n" //xmm1: I7 I6 I5 I4
+"pshufd $0b01010101, %%xmm0, %%xmm2\n" //xmm2: R5 R5 R5 R5
+"pshufd $0b01010101, %%xmm1, %%xmm3\n" //xmm3: I5 I5 I5 I5
+"mulps  NPNN, %%xmm2\n" //xmm2: -R5 +R5 -R5 -R5
+"mulps  PPNP, %%xmm3\n" //xmm3: +I5 +I5 -I5 +I5
+"addps  %%xmm3, %%xmm2" //xmm2: -R5+I5 +R5+I5 -R5-I5 -R5+I5
+"pshufd $0b11111111, %%xmm0, %%xmm3\n" //xmm3: R7 R7 R7 R7
+"pshufd $0b11111111, %%xmm1, %%xmm4\n" //xmm4: I7 I7 I7 I7
+"mulps  PNNN, %%xmm3\n" //xmm3: +R7 -R7 -R7 -R7
+"mulps  PPPN, %%xmm4\n" //xmm4: +I7 +I7 +I7 -I7
+"addps  %%xmm3, %%xmm2\n" //xmm2: -R5+I5+R7 +R5+I5-R7 -R5-I5-R7 -R5+I5-R7
+"addps  %%xmm4, %%xmm2\n" //xmm2: -R5+I5+R7+I7 +R5+I5-R7+I7 -R5-I5-R7+I7 -R5+I5-R7-I7
+"mulps  VECN, %%xmm2\n" //xmm2: R3' R1' I3' I1'
+"shufps $0b10001000, %%xmm1, %%xmm0\n" //xmm0: I6 I4 R6 R4
+"pshufd $0b10000010, %%xmm0, %%xmm3\n" //xmm3: I4 R4 R4 I4
+"pshufd $0b11010111, %%xmm0, %%xmm1\n" //xmm1: I6 R6 R6 I6
+"mulps  PPNP, %%xmm3\n" //xmm3: +I4 +R4 -R4 +I4
+"mulps  PNNN, %%xmm1\n" //xmm1: +I6 -R6 -R6 -I6
+"subps  %%xmm1, %%xmm3\n" //xmm3: R2' R0' I2' I0'
+"movaps %%xmm3, %%xmm0\n" //xmm0: R2' R0' I2' I0'
+"punpckhdq %%xmm2, %%xmm0\n" //xmm0: R3' R2' R1' R0'
+"punpckldq %%xmm2, %%xmm3\n" //xmm3: I3' I2' I1' I0'
+"movaps %0, %%xmm1\n" //xmm1: R3 R2 R1 R0
+"movaps %1, %%xmm2\n" //xmm2: I3 I2 I1 I0
+"addps  %%xmm0, %0\n"
+"addps  %%xmm3, %1\n"
+"subps  %%xmm0, %%xmm1\n"
+"subps  %%xmm3, %%xmm2\n"
+"movaps %%xmm1, %2\n"
+"movaps %%xmm2, %3\n"
+
