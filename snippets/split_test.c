@@ -4,9 +4,11 @@
 #define sa16 static __attribute__ ((aligned(16)))
 #define make_w(power, N) \
     float sa16 w_##power##_re[N]; \
-    float sa16 w_##power##_im[N]
+    float sa16 w_##power##_im[N]; \
+    float sa16 w_##power##_3re[N]; \
+    float sa16 w_##power##_3im[N]
 #define init_w(power, N) \
-    genw(w_##power##_re, w_##power##_im, N)
+    genw(w_##power##_re, w_##power##_im, w_##power##_3re, w_##power##_3im, N)
 
 float sa16 buf_re[1024];
 float sa16 buf_im[1024];
@@ -16,19 +18,23 @@ make_w(4, 16);
 make_w(5, 32);
 make_w(6, 64);
 
-static void genw(float* re, float* im, int N)
+static void genw(float* re, float* im, float* re3, float* im3, int N)
 {
     int k;
     float omega = 2.0 * M_PI / (float)N;
-    for(k = 0; k < N; k ++)
+    
+    for(k = 0; k < N / 4; k ++)
     {
         //e^{-j\frac{2\pi}{N}k} = \cos(\frac{2\pi}{N}k) - j\sin(\frac{2\pi}{N})
         re[k] = + cos(omega * k);
         im[k] = - sin(omega * k);
+        re3[k] = + cos(omega * k * 3);
+        im3[k] = - sin(omega * k * 3);
     }
 }
 
-static void split(float* re, float* im, float* w_re, float* w_im, int N)
+static void split(float* re, float* im, float* w_re, float* w_im,
+    float* w_3re, float* w_3im, int N)
 {
     int k;
     float* x2_re, *x2_im, *x3_re, *x3_im;
@@ -47,8 +53,8 @@ static void split(float* re, float* im, float* w_re, float* w_im, int N)
         x2_re[k] = tmp_re;
         
         //X[k + 3N/4] <== X[k + 3N/4] * W_N^{3k}
-        tmp_re   = x3_re[k] * w_re[3 * k] - x3_im[k] * w_im[3 * k];
-        x3_im[k] = x3_re[k] * w_im[3 * k] + x3_im[k] * w_re[3 * k];
+        tmp_re   = x3_re[k] * w_3re[k] - x3_im[k] * w_3im[k];
+        x3_im[k] = x3_re[k] * w_3im[k] + x3_im[k] * w_3re[k];
         x3_re[k] = tmp_re;
         
         //(no dependence)
@@ -81,7 +87,7 @@ int main(void)
         buf_re[i] = 1;
         buf_im[i] = 1;
     }
-    split(buf_re, buf_im, w_3_re, w_3_im, 8);
+    split(buf_re, buf_im, w_3_re, w_3_im, w_3_3re, w_3_3im, 8);
     for(i = 0; i < 8; i ++)
         printf("%f ", buf_re[i]);
     puts("\n");
