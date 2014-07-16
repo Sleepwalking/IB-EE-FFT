@@ -135,7 +135,7 @@ int main(void)
     
     for(k = 0; k < N / 4; k ++)
 #else
-    for(k = 0; k < N / 4 - 3; k += 4)
+    for(k = 0; k < N / 4; k += 4)
 #endif
     {
 #ifndef ASM
@@ -205,7 +205,7 @@ __asm__ __volatile__
 #ifndef ASM
     for(k = 0; k < N / 2; k ++)
 #else
-    for(k = 0; k < N / 2 - 3; k += 4)
+    for(k = 0; k < N / 2; k += 4)
 #endif
     {
 #ifndef ASM
