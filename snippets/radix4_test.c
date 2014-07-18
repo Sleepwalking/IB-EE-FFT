@@ -18,6 +18,26 @@ double get_time_ms()
     return (t.tv_sec + (t.tv_usec / 1000000.0)) * 1000.0;
 }
 
+#define module_radix4(Real, Imag) \
+    do { \
+    float Re_0, Re_1, Re_2, Re_3, Im_0, Im_1, Im_2, Im_3; \
+    Re_0 = *(Real + 0); \
+    Re_1 = *(Real + 1); \
+    Re_2 = *(Real + 2); \
+    Re_3 = *(Real + 3); \
+    Im_0 = *(Imag + 0); \
+    Im_1 = *(Imag + 1); \
+    Im_2 = *(Imag + 2); \
+    Im_3 = *(Imag + 3); \
+    *(Real + 0) = Re_0 + Re_1 + Re_2 + Re_3; \
+    *(Real + 1) = Re_0 - Re_1 + Im_2 - Im_3; \
+    *(Real + 2) = Re_0 + Re_1 - Re_2 - Re_3; \
+    *(Real + 3) = Re_0 - Re_1 - Im_2 + Im_3; \
+    *(Imag + 0) = Im_0 + Im_1 + Im_2 + Im_3; \
+    *(Imag + 1) = Im_0 - Im_1 - Re_2 + Re_3; \
+    *(Imag + 2) = Im_0 + Im_1 - Im_2 - Im_3; \
+    *(Imag + 3) = Im_0 - Im_1 + Re_2 - Re_3; } while(0)
+
 int main(void)
 {    
         
@@ -64,9 +84,10 @@ int main(void)
                 I2 <- +I0 -I1 +I2 -I3
                 I3 <- +I0 +R1 -I2 -I3
                 */
-                #define ASM
+                //#define ASM
                 
                 #ifndef ASM
+                /*
                 float R0, R1, R2, R3;
                 float I0, I1, I2, I3;
                 
@@ -87,7 +108,8 @@ int main(void)
                 buf_imag[i  ] = +I0 +I2 +I1 +I3;
                 buf_imag[i+1] = +I0 -I2 +R3 -R1;
                 buf_imag[i+2] = +I0 -I1 +I2 -I3;
-                buf_imag[i+3] = +I0 -I2 +R1 -I3;
+                buf_imag[i+3] = +I0 -I2 +R1 -I3;*/
+                module_radix4(buf_real + i, buf_imag + i);
                 
                 #else
 __asm__ __volatile__
