@@ -9,14 +9,12 @@ static void fft_block_6(float* re, float* im)
 {
     int k;
     
-    load_radix2();
     module_radix2(re + 4, im + 4);
     module_radix2(re + 20, im + 20);
     module_radix2(re + 28, im + 28);
     module_radix2(re + 36, im + 36);
     module_radix2(re + 52, im + 52);
     
-    load_radix4_partial();
     module_radix4(re, im);
     module_radix4(re + 8, im + 8);
     module_radix4(re + 12, im + 12);
@@ -44,11 +42,9 @@ static void fft_block_6(float* re, float* im)
 
 
 #define fft_block_1(re, im) \
-    load_radix2(); \
     module_radix2(re, im)
 
 #define fft_block_2(re, im) \
-    load_radix4(); \
     module_radix4(re, im)
 
 #define fft_block_3(re, im) \
