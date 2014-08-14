@@ -1,0 +1,37 @@
+\documentclass[a4paper]{report}
+\usepackage{graphicx}
+\usepackage{natbib}
+\begin{document}
+
+\title{\Huge{Extended Essay} \\[2cm] \Large{Fast Fourier Transform Implementation on X86 Architecture with SIMD Optimization} \\[1cm]}
+\author{Kenton Hua \\[0.5cm] Shanghai Pinghe Bilingual School}
+\date{August 14, 2014}
+\maketitle
+
+\newpage
+
+\chapter*{Abstract} \indent
+
+	Fast Fourier Transform(FFT), as an optimized algorithm and discrete version derived from Fourier Transform(FT), is widely used in the field of Engineering and Computer Science. In most occasions, such transform can be understood as a change from time domain to frequency domain on a series of signal; the Fourier Transform of a time domain signal completely describes the frequency components of the signal.
+
+	Typical use of FFT involves data compression, audio/image processing, speech synthesis/recognization, digital communication and many other important applications.
+	
+	The purpose of this Extended Essay is to present, examine, and summarize several optimization techniques in programming by implementating a highly optimized FFT routine library, which is named ee-fft. This library performs an 1024-point FFT in 0.01 millisecond on an Intel T7250 mobile processor, which is 70 percent of speed performance of the world's fastest implementation.
+
+	My choice of CPU architecture is x86 with sse2 instruction set support since a vast majority of today's personal computer are compatible with such instruction sets. In first chapter I will start from listing several optimization techniques available on the chosen platform; chapter 2 will start with a quick introduction of FFT and outline the structure of ee-fft; in chapter 3 I will describe each part of the implementation in detail; benchmark, evaluation, comparison and conclusion will be presented in chapter 4.
+
+\newpage
+\tableofcontents
+
+\newpage
+
+\chapter{Optimization Techniques on X86 with SIMD Support}
+\chapter{FFT Derivation and Program Structure}
+\chapter{The Implentation}
+\chapter{Evaluation and Review}
+
+\appendix
+\chapter{The Complete Source Code}
+
+\end{document}
+
