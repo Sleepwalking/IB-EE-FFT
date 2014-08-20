@@ -3,6 +3,7 @@
 \usepackage{listings}
 \usepackage{natbib}
 \usepackage{color}
+\usepackage{amsmath}
 
 %Inserting codes
 \definecolor{green}{rgb}{0,0.6,0}
@@ -33,7 +34,7 @@
 \begin{document}
 
 \title{\Huge{Extended Essay} \\[2cm] \Large{Fast Fourier Transform Implementation on X86 Architecture with SIMD Optimization} \\[1cm]}
-\author{Kenton Hua \\[0.5cm] Shanghai Pinghe Bilingual School}
+\author{Kanru Hua \\[0.5cm] Shanghai Pinghe Bilingual School}
 \date{August 14, 2014}
 \maketitle
 
@@ -41,13 +42,13 @@
 
 \chapter*{Abstract} \indent
 
-	Fast Fourier Transform(FFT), as an optimized algorithm and discrete version derived from Fourier Transform(FT), is widely used in the field of Engineering and Computer Science. In most occasions, such transform can be understood as a change from time domain to frequency domain on a series of signal; the Fourier Transform of a time domain signal completely describes the frequency components of the signal.
-
+	Fast Fourier Transform(FFT), as an optimized algorithm and discrete version derived from Fourier Transform(FT), is widely used in the field of Engineering and Computer Science. %In most occasions, such transform can be understood as a change from time domain to frequency domain on a series of signal; the Fourier Transform of a time domain signal completely describes the frequency components of the signal.
 	Typical use of FFT involves data compression, audio/image processing, speech synthesis/recognization, digital communication and many other important applications.
 	
-	The purpose of this Extended Essay is to present, examine, and summarize several optimization techniques in programming by implementating a highly optimized single-precision FFT routine library, which is named ee-fft. This library performs an 1024-point FFT in 0.01 millisecond on an Intel T7250 mobile processor, which is 70 percent of speed performance of the world's fastest implementation.
+	The purpose of this Extended Essay is to present a method to implement a highly optimized FFT routine library, which is named ee-fft. This library performs an 1024-point FFT in 0.01 millisecond on an Intel T7250 mobile processor. Although it is 30 percent slower than the world's fastest implementation, ee-fft is more light-weighted and is published under MIT License.
 
-	My choice of CPU architecture is x86 with SSE2 instruction set support since a vast majority of today's personal computer are compatible with such instruction sets. In first chapter I will start from listing several optimization techniques available on the chosen platform; chapter 2 will start with a quick introduction of FFT and outline the structure of ee-fft; in chapter 3 I will describe each part of the implementation in detail; benchmark, evaluation, comparison and conclusion will be presented in chapter 4.
+	%My choice of CPU architecture is x86 with SSE2 instruction set support since a vast majority of today's personal computer are compatible with such instruction sets.
+	In the first chapter I will start from listing several optimization techniques available on the chosen platform; chapter 2 will start with some background knowledge about FFT algorithms and then outline the structure of ee-fft; in chapter 3 I will describe each part of the implementation in detail; benchmark, evaluation, comparison and conclusion will be presented in chapter 4.
 
 \newpage
 \tableofcontents
@@ -192,7 +193,7 @@ int i;
 for(i = 0; i < N_datasize - L1data_size + 1; i += L1data_size)
 	process(dst + i, src1 + i, src2 + i, L1data_size);
 
-/* process the rest that do not fit in cache sizes */
+/* process the rest that do not fit in cache size */
 process(dst + i, src1 + i, src2 + i, N_datasize - i);
         \end{lstlisting}
 
@@ -258,11 +259,339 @@ for(; i < N; i ++)
 	There is a trade-off between loop unrolling with cache miss rate. In the multiplication case, if N equals to 20000 and the loop is unrolled into two iterations of 10000 multiplications, the size of compiled binary may become larger than L1 instruction cache. So the optimized code may be even slower than the original one.
 
 \chapter{FFT Derivation and Program Structure}
-\chapter{The Implentation}
+
+\section{Choice of Algorithm} \indent
+
+	In this section the Discrete Fourier Transform(DFT) and Split Radix Algorithm, as one of the Fast Fourier Transform Algorithms, will be reviewed.
+
+\subsection{Discrete Fourier Transform} \indent
+
+	The algebraic representation of DFT is,
+	
+	\[X_k = \sum^{N-1}_{n=0} x_n e^{-j\frac{2\pi}{N}nk}, \quad k = 0, 1, ..., N-1\]
+	
+	where $X_k$ is the output as a series of complex numbers; $x_n$ is the input also as a series of complex numbers; $N$ is the size of transform. In Signal Processing, $j$ is used to replace $i$, the notation of imaginary unit.
+	
+	From the above formula we can see the time complexity of DFT is $O(n^2)$. When n is large, the computational cost will be very high.
+
+\subsection{Split Radix Fast Fourier Transform} \indent
+
+	Split Radix algorithm is an adaption of Cooley-Tukey FFT algorithm(Cooley, Tukey). Both of them reduce the time complexity to $O(n\;log(n))$. The former one further reduces the number of complex additions and multiplications.
+	
+	The key concept of those algorithms is ``Divide and Conquer". By Cooley-Tukey algorithm, the $O(n^2)$ problem is splited into two $O(\frac{n^2}{4})$ sub-problems and then splited into four $O(\frac{n^2}{16})$ sub-problems and so on, until the size of the bottom level transform reaches 2.
+
+	One limit of such algorithm is that the transform size must be an integer power of 2, otherwise the transform cannot be completely splited. Luckily in most applications it is fine to compromise to transform size of an integer power of 2.
+	
+	\begin{figure}[htp]
+		\centering
+		\includegraphics[scale=0.15]{/home/sleepwalking/Documents/IB-EE-FFT/dia/divide-and-conquer-sprdx.png}
+		\caption{the divide-and-conquer nature of Split Radix FFT}
+	\end{figure}
+
+\section{Mathematical Derivation} \indent
+
+	The following is derivation of Decimation-In-Time(DIT) Split Radix FFT as a background for the next chapter. Another form of Split Radix FFT is Decimation-In-Frequency(DIF). Their differences will be explained in section 2.3.2.
+	
+	This section is a summary of the reference articles. %Cite needed.
+
+\subsection{Decimation In Time} \indent
+
+	To simplify the formula, we define a twiddle factor $W_N$ as
+	
+	\[W_N = e^{-j\frac{2\pi}{N}}\]
+	
+	where subscript $N$ is the denominator of the exponent, so 
+	
+	\[W_{N/2} = e^{-j\frac{4\pi}{N}} \quad W_{N/4} = e^{-j\frac{8\pi}{N}}\]
+
+	The DFT formula can be represented with a twiddle factor:
+	
+	\[X_k = \sum^{N-1}_{n=0} x_n W_N^{nk}\]
+
+	Extract the summation of even indices and two forms of odd indices:
+	
+	\[X_k = \underbrace{\sum^{N/2-1}_{n=0} x_{2n} W_{N}^{2nk}}_a
+	      + \underbrace{\sum^{N/4-1}_{n=0} x_{4n+1} W_{N}^{(4n+1)k}}_b
+	      + \underbrace{\sum^{N/4-1}_{n=0} x_{4n+3} W_{N}^{(4n+3)k}}_c\]
+
+	Part a can be rearranged as,
+	
+	\[\sum^{N/2-1}_{n=0} x_{2n} W_{N}^{2nk} = \sum^{N/2-1}_{n=0} x_{2n} W_{N/2}^{nk}\]
+	
+	For part b,
+	
+	\[\sum^{N/4-1}_{n=0} x_{4n+1} W_{N}^{(4n+1)k}
+	= \sum^{N/4-1}_{n=0} x_{4n+1} W_{N}^{4nk} \, W_{N}^{k}
+	= W_{N}^{k}\sum^{N/4-1}_{n=0} x_{4n+1} W_{N/4}^{nk}\]
+	
+	The same method applies for part c,
+	
+	\[\sum^{N/4-1}_{n=0} x_{4n+3} W_{N}^{(4n+3)k}
+	= \sum^{N/4-1}_{n=0} x_{4n+3} W_{N}^{4nk} \, W_{N}^{3k}
+	= W_{N}^{3k}\sum^{N/4-1}_{n=0} x_{4n+3} W_{N/4}^{nk}\]
+	
+	Combine the parts together,
+	
+	\[X_k = \underbrace{\sum_{n=0}^{N/2-1} x_{2n} W_{N/2}^{nk}}_{\text{DFT}\{x_{2n}\}}
+          + W_N^k \underbrace{\sum_{n=0}^{N/4-1} x_{4n+1} W_{N/4}^{nk}}_{\text{DFT}\{x_{4n+1}\}}
+          + W_N^{3k} \underbrace{\sum_{n=0}^{N/4-1} x_{4n+3} W_{N/4}^{nk}}_{\text{DFT}\{x_{4n+3}\}}\]
+	
+	So the N-sized DFT is splited to one $\frac{N}{2}$ and two $\frac{N}{4}$-sized DFTs. However, index k is bounded between 0 and $\frac{N}{4}-1$.
+
+\subsection{Expand the Bound} \indent
+
+	The above formula only gives the result when k is bounded between 0 and $\frac{N}{4}-1$ because when $k \geq \frac{N}{4}$, part b and part c are no longer DFTs. To yield a more general result, different ranges of k are discussed respectively.
+
+\subsubsection{Range $k \in [\frac{N}{4}, \frac{N}{2}[$} \indent
+
+	We use $p = k - \frac{N}{4}$ to replace k; the twiddle factors in each sub-DFT remain unchanged:
+	
+	\[\begin{split}
+	W_{N/4}^{n(p+N/4)} & = e^{-j\frac{2\pi}{N/4}n(p+N/4)} \\
+					   & = e^{-j\frac{2\pi}{N/4}np} \underbrace{e^{-j\frac{2\pi}{N/4}n(N/4)}}_{= e^{-j2\pi n} = 1} \\
+					   & = e^{-j\frac{2\pi}{N/4}np} = W_{N/4}^{np}
+	\end{split}\]
+
+	But the twiddle factors outside of sub-DFTs of part b and part c changed:
+
+	\[\begin{split}
+	W_N^{p+N/4} & = e^{-j\frac{2\pi}{N}(p+N/4)} \\
+				& = e^{-j\frac{2\pi}{N}p} \underbrace{e^{-j\frac{2\pi}{N}(N/4)}}_{= e^{-j\frac{\pi}{2}} = -j} \\
+				& = -j W_{N}^p \\
+ W_N^{3(p+N/4)} & = W_N^{3p} W_N^{3N/4} = j W_N^{3p}
+	\end{split}\]
+
+\subsubsection{Range $k \in [\frac{N}{2}, \frac{3N}{4}[$} \indent
+
+	We use $p = k - \frac{N}{2}$ to replace k and use the same method as above,
+	
+	\[\begin{split}
+	W_{N/4}^{n(p+N/2)} & = W_{N/4}^{np} \\
+	       W_N^{p+N/2} & = -W_N^p \\
+	    W_N^{3(p+N/2)} & = W_N^{3p} W_N^{3N/2} = -W_N^{3p}
+	\end{split}\]
+	
+\subsubsection{Range $k \in [\frac{3N}{4}, N[$} \indent
+
+	We use $p = k - \frac{3N}{4}$ to replace k and use the same method as above,
+	
+	\[\begin{split}
+	W_{N/4}^{n(p+3N/4)} & = W_{N/4}^{np} \\
+	       W_N^{p+3N/4} & = W_N^{p+N/2} W_N^{N/4} = W_N^{p+N/4} = j W_{N}^p\\
+	    W_N^{3(p+3N/4)} & = W_N^{3p} W_N^{3N/4} W_N^{3N/2} = -j W_N^{3p}
+	\end{split}\]
+	
+\subsubsection{The Split Radix} \indent
+
+	The whole algorithm can be represented in a cascaded multi-level split structure. Each split is based on the result of splits in the lower level.
+	
+	\bigskip
+	
+	We define $X_1$ as $DFT\{x_{2n}\}$; $X_2$ as $DFT\{x_{4n+1}\}$; $X_3$ as $DFT\{x_{4n+3}\}$.
+
+	\bigskip
+	
+	For $k \in [0, \frac{N}{4}[$,
+	
+	\[\begin{split}
+  X_k & = X_{1_k} + W_N^k X_{2_k} + W_N^{3k} X_{3_k}\\
+  X_{k + N/4} & = X_{1_{k + N/4}} - jW_N^k X_{2_k} + jW_N^{3k} X_{3_k} \\
+  X_{k + N/2} & = X_{1_k} - W_N^k X_{2_k} - W_N^{3k} X_{3_k} \\
+  X_{k + 3N/4} & = X_{1_{k + N/4}} + jW_N^k X_{2_k} - jW_N^{3k} X_{3_k} \\
+	\end{split}\]
+
+\subsection{A Procedural Approach} \indent
+
+	To give an intuition of what exactly the Split Radix algorithm does, we take a transform size N = 16 into the formula and get the following procedure for spliting:
+	
+	\begin{enumerate}
+	\item $DFT_{16}\{x_n\}$ is splited into $DFT_{8}\{x_{2n}\}$, $DFT_{4}\{x_{4n+1}\}$, and $DFT_{4}\{x_{4n+3}\}$.
+	\item $DFT_{8}\{x_{2n}\}$ is splited into $DFT_{4}\{x_{4n}\}$, $DFT_{2}\{x_{8n+2}\}$, and $DFT_{2}\{x_{8n+6}\}$.
+	\item $DFT_{4}\{x_{4n+1}\}$ is splited into $DFT_{2}\{x_{8n+1}\}$, $x_5$, and $x_{13}$.
+	\item $DFT_{4}\{x_{4n+3}\}$ is splited into $DFT_{2}\{x_{8n+3}\}$, $x_7$, and $x_{15}$.
+	\item $DFT_{4}\{x_{4n}\}$ is splited into $DFT_{2}\{x_{8n}\}$, $x_4$, and $x_{12}$.
+	\item 2-sized DFTs cannot be splited further by Split Radix but can still be splited by DFT:
+	\item $DFT_{2}\{x_{8n+2}\}$ can be merged from $x_2$ and $x_{10}$.
+	\item $DFT_{2}\{x_{8n+6}\}$ can be merged from $x_6$ and $x_{14}$.
+	\item $DFT_{2}\{x_{8n+1}\}$ can be merged from $x_1$ and $x_{9}$.
+	\item $DFT_{2}\{x_{8n+3}\}$ can be merged from $x_3$ and $x_{11}$.
+	\item $DFT_{2}\{x_{8n}\}$ can be merged from $x_0$ and $x_{8}$.
+	\end{enumerate}
+	
+	The computing procedure is exactly the reverse of the above process. The following diagram visualizes such process with blocks representing merges.
+
+\begin{figure}[htp]
+\centering
+\includegraphics[scale=0.3]{../dia/split-radix-16.png}
+\caption{Split Radix Block Diagram, N=16}
+\end{figure}
+
+	We can observe that the inputs on the left side are not in original order. This is because in each split the odd and even indices are shuffled.
+	
+	One way to shuffle the inputs is to use bit reverse method. Take transform with N=16 as an example. The shuffled series of indices in the picture, \{0, 9, 4, 12, 2, 10, ..., 7, 15\} can be generated by the following procedure:
+	
+	\begin{enumerate}
+		\item Generate an array of ascending integers from 0 to $N-1$.
+		\item Convert all elements of the array into binary integer each containing $log_2n$ bits. The empty bits are filled with zero.
+		\item Reverse the binary integers. For example, 000110 is reversed as 011000.
+		\item Convert the binary integers back into decimal integers.
+	\end{enumerate}
+
+\section{Points to Consider} \indent
+
+	Before coding, some details have to be considered to trade off between performance and features.
+
+\subsection{Transform Dimension and Precision} \indent
+
+	One dimensional DFT is the most commonly used type of Fourier Transform in Engineering; multi dimensional DFT can be decomposed to cascaded one dimensional transforms. So I will only implement one dimensional FFT.
+	
+	The need for precision depends on the specific application of FFT. To maximize speed, only single precision floating point type will be involved.
+
+\subsection{DIT v.s. DIF} \indent
+
+	Decimation-In-Frequency FFT, in contrast, splits the transform from the right, i.e., the output side. The derivation method is generally same. Another difference is, the input is ordered but the output is out of order and has to be bit reversed.
+	
+	The total number of additions and multiplications for DIT and DIF are same. So I just arbitrarily chosed DIT.
+
+\subsection{In-place v.s. Out-of-place} \indent
+
+	In-place means the memory region for input is refilled by output after transformation; out-of-place means the output is dumpped into another region of memory.
+	
+\subsubsection{Is it possible to do the whole transform in-place?} \indent
+
+	The answer is true.
+	
+	\bigskip
+	
+	Merging the right hand side of the generalized Split Radix formula(see section 2.2.2) gives,
+	
+	\[\begin{split}
+  X_k 		  & = X_{1_k} + \left(W_N^{3k} X_{3_k} + W_N^k X_{2_k}\right)\\
+  X_{k + N/4}  & = X_{1_{k + N/4}} + j\left(W_N^{3k} X_{3_k} - W_N^k X_{2_k}\right) \\
+  X_{k + N/2}  & = X_{1_k} - \left(W_N^{3k} X_{3_k} + W_N^k X_{2_k}\right) \\
+  X_{k + 3N/4} & = X_{1_{k + N/4}} - j\left(W_N^{3k} X_{3_k} - W_N^k X_{2_k}\right) \\
+	\end{split}\]
+	
+	We observe that $X_1$ is copied into $X_k$ and $X_{k + N/2}$. Then addition/subtraction/multiplication with twiddle factors and imaginary unit of $X_3$ and $X_2$ are added onto $X_1$. Such procedure can be implemented in a for-loop without allocating memory for intermediate results.
+	
+	The following diagram, named as the ``Butterfly Diagram" for its shape similarity, shows the arithmetic procedure of a split. Each arrow denotes an addition and each label above the lines denotes an multiplication.
+	
+	\begin{figure}[htp]
+		\centering
+		\includegraphics[scale=0.13]{../dia/split-butterfly.png}
+		\caption{Split Radix Butterfly Structure}
+	\end{figure}
+
+\newpage
+
+	By the way, the above diagram also looks like an inverted letter ``L", so the split process is also called L-shaped transform.
+
+\subsubsection{Advantage of In-place transform} \indent
+
+	Since no extra memory has to be allocated to store intermediate results, the in-place transform makes better use of data cache.
+
+\subsubsection{Disadvantage of In-place transform} \indent
+
+	The input may not be aligned to 16-byte boundaries. So in-place transform can incur a delay in data fetch and storage.
+
+\subsubsection{A Compromise} \indent
+
+	The bit reverse procedure should be out-of-place to shuffle the unaligned inputs into an aligned buffer. After transform the output is copied from the aligned buffer to the unaligned destination.
+
+\subsection{AoS v.s. SoA} \indent
+
+	AoS and SoA are respectively the abbreviations for ``Array of Structure" and ``Structure of Array".
+	
+	Both the input and output of DFT are complex values. So the AoS solution is to store them as a two dimensional array, of which the first dimension of index of signal, the second is real and imaginary part. The SoA solution involves two one dimensional arrays, one contains all real values, the other contains all imaginary values.
+
+	When doing SIMD optimization on AoS data, we have to do lots of shuffles on data, which can be rather complicated. So I chose SoA for simplicity.
+	
+\subsection{Choosing the Base Transform} \indent
+
+	In section 2.2.3 the minimal transform is 2-point DFT. If we set N=2, the DFT formula can be simplified as:
+
+\begin{align*}
+	X_k &= \sum^{1}_{n=0} x_n e^{-j\frac{2\pi}{N}nk}, \quad k = 0, 1 \\
+	X_0 &= x_0 + x_1 \\
+	X_1 &= x_0 - x_1
+\end{align*}
+
+	which is the sum and difference of two inputs.
+	
+	\bigskip
+	
+	Actually in 4-point DFT transforms, there is also no multiplication required:
+
+\[X_k = \sum_{n=0}^{3} x_n e^{-j\frac{2\pi}{4}nk} = \sum_{n=0}^{3} x_n e^{-j\frac{\pi}{2}nk} \]
+
+\begin{align*}
+X_0 &= \sum_{n=0}^{3} x_n = x_0 + x_1 + x_2 + x_3 \\
+X_1 &= \sum_{n=0}^{3} x_n e^{-j\frac{\pi}{2}n} = x_0 - jx_1 - x_2 + jx_3 \\
+X_2 &= \sum_{n=0}^{3} x_n e^{-j\pi n} = x_0 - x_1 + x_2 - x_3 \\
+X_3 &= \sum_{n=0}^{3} x_n e^{-j\frac{3\pi}{2} n} = x_0 + jx_1 - x_2 - jx_3
+\end{align*}
+
+	We need to pay attention that the input for above process are not bit reversed. So the 4-point transform should be changed as:
+	
+\begin{align*}
+X_0 &= \sum_{n=0}^{3} x_n = x_0 + x_2 + x_1 + x_3 \\
+X_1 &= \sum_{n=0}^{3} x_n e^{-j\frac{\pi}{2}n} = x_0 - jx_2 - x_1 + jx_3 \\
+X_2 &= \sum_{n=0}^{3} x_n e^{-j\pi n} = x_0 - x_2 + x_1 - x_3 \\
+X_3 &= \sum_{n=0}^{3} x_n e^{-j\frac{3\pi}{2} n} = x_0 + jx_2 - x_1 - jx_3
+\end{align*}
+
+\section{The System Design} \indent
+
+	\textit{ee-fft} will consist of the following modules:
+	
+	\begin{enumerate}
+		\item A bit reverse module to shuffle the inputs and align them in buffers.
+		\item 2-point DFT blocks, which are also called Radix-2 blocks.
+		\item 4-point DFT blocks, which are also called Radix-4 blocks.
+		\item Split blocks for arbitrarily sized(any integer power of 2) transforms.
+	\end{enumerate}
+	
+	For 8-point split process, few multiplications are involved. So these blocks are replaced by specifically optimized Split-8 blocks:
+
+\[\begin{split}
+  X_{0} & = X_{1_0} + X_{2_0} + X_{3_0}\\
+  X_{1} & = X_{1_1} + W_8 X_{2_1} + W_8^3 X_{3_1}\\
+  X_{2} & = X_{1_2} - jX_{2_0} + j X_{3_0}\\
+  X_{3} & = X_{1_3} - jW_8 X_{2_1} + jW_8^3 X_{3_1}\\
+  X_{4} & = X_{1_0} - X_{2_0} - X_{3_0}\\
+  X_{5} & = X_{1_1} - W_8 X_{2_1} - W_8^3 X_{3_1}\\
+  X_{6} & = X_{1_2} + jX_{2_0} - jX_{3_0}\\
+  X_{7} & = X_{1_3} + jW_8 X_{2_1} - jW_8^3 X_{3_1}\\
+\end{split}\]
+
+	Because the control flow of Split Radix FFT is independent from the data flow, i.e., the data doesn't affect the process of calculations, the implementation can be fully unrolled that does not even has a loop. However, as mentioned in section 1.2.2, such unroll increases the instruction cache miss rate. My solution is to pack the unrolled small transforms into functions, and then pack the functions into larger transforms. In such process no conditional branch is added, thus decreases the branch prediction fail rate.
+
+\begin{figure}[htp]
+\centering
+\includegraphics[scale=0.21]{/home/sleepwalking/Documents/IB-EE-FFT/dia/sys-structure.png}
+\caption{the overall system structure}
+\label{}
+\end{figure}
+\chapter{The Implementation}
+
+\section{Bit Reverse Module} \indent
+
+\section{Radix-2 Block} \indent
+
+\section{Radix-4 Block} \indent
+
+\section{Split-8 Block} \indent
+
+\section{L-shaped Split Block} \indent
+
+\section{Putting the Blocks Together} \indent
+
 \chapter{Evaluation and Review}
 
 \appendix
 \chapter{Source Code}
+
+\chapter{Bibliography}
 
 \end{document}
 
