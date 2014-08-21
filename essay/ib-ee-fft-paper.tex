@@ -4,6 +4,7 @@
 \usepackage{natbib}
 \usepackage{color}
 \usepackage{amsmath}
+\usepackage{alltt}
 
 %Inserting codes
 \definecolor{green}{rgb}{0,0.6,0}
@@ -256,7 +257,7 @@ for(; i < N; i ++)
 
 	When compiling C programs with an optimization flag, many compilers can automatically unroll the loops but in some ocassions manually unroll the loops yields faster programs, especially when combining loop unrolling with vectorization.
 
-	There is a trade-off between loop unrolling with cache miss rate. In the multiplication case, if N equals to 20000 and the loop is unrolled into two iterations of 10000 multiplications, the size of compiled binary may become larger than L1 instruction cache. So the optimized code may be even slower than the original one.
+	There is a trade-off between loop unrolling and cache miss rate. In the multiplication case, if N equals to 20000 and the loop is unrolled into two iterations of 10000 multiplications, the size of compiled binary may become larger than L1 instruction cache. So the optimized code may be even slower than the original one.
 
 \chapter{FFT Derivation and Program Structure}
 
@@ -572,19 +573,601 @@ X_3 &= \sum_{n=0}^{3} x_n e^{-j\frac{3\pi}{2} n} = x_0 + jx_2 - x_1 - jx_3
 \caption{the overall system structure}
 \label{}
 \end{figure}
-\chapter{The Implementation}
+\chapter{The Implementation} \indent
+
+	In this chapter I will present the creation and optimization of each module in the design discussed in section 2.4.
+	
+	Each section will contain a C implementation and an optimized version using gcc assembly extension. Section 3.6 will discuss about how to assemble \textit{ee-fft} using several established modules.
 
 \section{Bit Reverse Module} \indent
 
+	The bit reverse method has been introduced in section 2.2.3. Since real and imaginary parts are moved together in this process, we can write a out-of-place function that shuffles one portion of the complex numbers and call it twice.
+	
+\subsection{Bit Reverse in C} \indent
+
+        \lstset{language = c, tabsize = 4}
+        \begin{lstlisting}
+/* Shuffles the real array src into dst. Power is transform size in power of 2. */
+void bitrev(float* dst, float* src, int power)
+{
+    int N, i, j;
+    int tmp = 0x00000000; /* reversed index */
+    N = pow(2, power); /* size of data */
+    
+    /* The first input always corresponds to the first output. */
+    dst[0] = src[0];
+    for(i = 0; i < N - 1; i ++) /* for each input */
+    {
+        j = power - 1; /* bit traverse counter */
+        
+        /* The following code adds an 1 to tmp from the left. */
+        while((tmp & (1 << j)) != 0)
+        {
+            tmp &= ~ (1 << j);
+            j --;
+        }
+        tmp |= (1 << j);
+        
+        /* shuffle */
+        dst[i + 1] = src[tmp];
+    }
+}
+        \end{lstlisting}
+
+\subsection{Static Bit Reverse Generator} \indent
+
+	The above code has lots of branches and loops that cause the program run very slow. One method to optimize this is to fully unroll the loop.
+	
+	The \textit{bitrev} function's behaviour only depends on \textit{Power}. So we can write multiple unrolled functions each corresponds to a certain input of \textit{Power}. The intuition is to write another program that is a ``Code Generator", which outputs the possibly very long and monotone process of unrolled \textit{bitrev} functions for each transform size.
+	
+	For data transfer of single precision floating point values, SSE instruction \textbf{movss} can be used to replace IA-32 instruction \textbf{mov}. To further optimize, XMM registers are used in circulation:
+
+        \lstset{language = c, tabsize = 4}
+        \begin{lstlisting}
+    for(i = 0; i < N - 1; i ++)
+    {
+    	/*
+    		codes to generate tmp
+    	*/
+        printf("\"movss %d%%1, %%%%xmm%d\\n\"\n", tmp * 4, i % 8);
+        printf("\"movss %%%%xmm%d, %d%%0\\n\"\n", i % 8, i * 4 + 4);
+	}
+        \end{lstlisting}
+
+	The complete codes are located at src/gen/genrev.c .
+	
+	Example of using \textit{genrev} under Unix shell:
+
+        \lstset{language = sh, tabsize = 4}
+        \begin{lstlisting}
+$ ./genrev -a 2 > bitrev.c
+$ cat bitrev.c
+static void bitrev_2(float* dst, float* src)
+{
+    __asm__ __volatile__
+    (
+        "movss %1, %%xmm0\n"
+        "movss %%xmm0, %0\n"
+        "movss 8%1, %%xmm0\n"
+        "movss %%xmm0, 4%0\n"
+        "movss 4%1, %%xmm1\n"
+        "movss %%xmm1, 8%0\n"
+        "movss 12%1, %%xmm2\n"
+        "movss %%xmm2, 12%0\n"
+    : "+m"(*dst)
+    : "m"(*src)
+    : "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5", "%xmm6", "%xmm7"
+    );
+}
+        \end{lstlisting}
+
 \section{Radix-2 Block} \indent
+
+	Numerical computation method has been discussed in section 2.3.5.
+
+\subsection{Radix-2 in C} \indent
+
+	This is rather easy:
+	
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+float tmp_re, tmp_im;
+tmp_re = real[0] + real[1];
+tmp_im = imag[0] + imag[1];
+real[1] = real[0] - real[1];
+imag[1] = imag[0] - imag[1];
+real[0] = tmp_re;
+imag[0] = tmp_im;
+    \end{lstlisting}
+
+\subsection{SIMD Optimized Packed Radix-2} \indent
+
+	If the above codes are optimized using SSE instructions, only half of an XMM register can be utilized.
+	
+	Figure 2.4 in the last chapter shows Radix-2 transforms only directly output to Split-8 transforms. So all Radix-2 blocks appear in pairs, of which input consists of four real successive real values and four successive imaginary values. In other words, Radix-2 blocks can be packed.
+
+	If we use R0, R1, R2... and I0, I1, I2... to denote real and imaginary input/output and left arrow to denote value assignment, the arithmetic flow of packed Radix-2 would be:
+
+\begin{alltt}
+\centering
+R0 <- R0 + R1
+R1 <- R0 - R1
+R2 <- R2 + R3
+R3 <- R2 - R3
+
+I0 <- I0 + I1
+I1 <- I0 - I1
+I2 <- I2 + I3
+I3 <- I2 - I3
+\end{alltt}
+
+	SSE2 instruction \textbf{pshufd} provides a way to shuffle the ordered inputs to arbitrary ordered combination of four. The optimized version in gcc asssembly extension is:
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+        __asm__ __volatile__
+        (
+            "movaps %0, %%xmm0                 \n"
+            "pshufd $0b11110101, %%xmm0, %%xmm1\n"
+            "movaps %1, %%xmm2                 \n"
+            "pshufd $0b10100000, %%xmm0, %%xmm0\n"
+            "mulps  %%xmm7, %%xmm1             \n"
+            "pshufd $0b11110101, %%xmm2, %%xmm3\n"
+            "mulps  %%xmm7, %%xmm3             \n"
+            "pshufd $0b10100000, %%xmm2, %%xmm2\n"
+            "addps  %%xmm1, %%xmm0             \n"
+            "movaps %%xmm0, %0                 \n"
+            "addps  %%xmm3, %%xmm2             \n"
+            "movaps %%xmm2, %1                 \n"
+            : "+m"(R), "+m"(I)
+            :
+            : "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm7"
+        );
+    \end{lstlisting}
+    
+    XMM7 should be loaded with a vector \{1.0, - 1.0, 1.0, - 1.0\} before the above process.
 
 \section{Radix-4 Block} \indent
 
+	Numerical computation method has been discussed in section 2.3.5.
+
+\subsection{Radix-4 in C} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+float R0, R1, R2, R3;
+float I0, I1, I2, I3;
+
+R0 = real[i];
+R1 = real[i+1];
+R2 = real[i+2];
+R3 = real[i+3];
+I0 = imag[i];
+I1 = imag[i+1];
+I2 = imag[i+2];
+I3 = imag[i+3];
+
+real[i  ] = +R0 +R2 +R1 +R3;
+real[i+1] = +R0 -R2 +I1 -I3;
+real[i+2] = +R0 -R1 +R2 -R3;
+real[i+3] = +R0 -R2 +R3 -I1;
+
+imag[i  ] = +I0 +I2 +I1 +I3;
+imag[i+1] = +I0 -I2 +R3 -R1;
+imag[i+2] = +I0 -I1 +I2 -I3;
+imag[i+3] = +I0 -I2 +R1 -I3;
+    \end{lstlisting}
+
+\subsection{SIMD Optimized Radix-4} \indent
+
+\subsubsection{Arithmetic Flow} \indent
+
+\begin{alltt}
+\centering
+R0 <- +R0 +R1 +R2 +R3
+R1 <- +R0 -R1 +I2 -I3
+R2 <- +R0 +R1 -R2 -R3
+R3 <- +R0 -R1 -I2 +I3
+
+I0 <- +I0 +I1 +I2 +I3
+I1 <- +I0 -I1 -R2 +R3
+I2 <- +I0 +I1 -I2 -I3
+I3 <- +I0 -I1 +R2 -R3
+\end{alltt}
+
+\subsubsection{The Codes} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+    __asm__ __volatile__
+    (
+        "movaps %0, %%xmm0\n"                  
+        "movaps %1, %%xmm1\n"                  
+        "pshufd $0b00000000, %%xmm0, %%xmm2\n" 
+        "pshufd $0b01010101, %%xmm0, %%xmm4\n" 
+        "pshufd $0b00000000, %%xmm1, %%xmm3\n" 
+        "mulps  %3, %%xmm4\n"                  
+        "pshufd $0b01010101, %%xmm1, %%xmm5\n" 
+        "mulps  %3, %%xmm5\n"                  
+        "addps  %%xmm4, %%xmm2\n"              
+        "addps  %%xmm5, %%xmm3\n"              
+        "punpckhdq %%xmm1, %%xmm0\n"           
+        "pshufd $0b01000100, %%xmm0, %%xmm4\n" 
+        "pshufd $0b11101110, %%xmm0, %%xmm1\n" 
+        "mulps  %2, %%xmm4\n"                  
+        "pshufd $0b00111001, %%xmm4, %%xmm5\n" 
+        "addps  %%xmm4, %%xmm2\n"              
+        "pshufd $0b00010001, %%xmm1, %%xmm4\n" 
+        "mulps  %4, %%xmm1\n"                  
+        "addps  %%xmm1, %%xmm2\n"              
+        "mulps  %2, %%xmm4\n"                  
+        "addps  %%xmm5, %%xmm3\n"              
+        "addps  %%xmm4, %%xmm3\n"              
+        "movaps %%xmm2, %0\n"                  
+        "movaps %%xmm3, %1\n"                  
+        : "+m"((re)[0]), "+m"((im)[0])         
+        : "m"(*NNPP), "m"(*NPNP), "m"(*PNNP)   
+        : "%xmm0", "%xmm1", "%xmm2", "%xmm3",  
+          "%xmm4", "%xmm5", "%xmm6", "%xmm7"   
+    );
+    \end{lstlisting}
+
+\subsubsection{Definitions} \indent
+
+	NNPP, NPNP, PNNP are three vectors to store the signs for intermediate computation.
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+#define sa16 static __attribute__ ((aligned(16)))
+float sa16 NPNP[4] = { 1.0, -1.0,  1.0, -1.0};
+float sa16 PNNP[4] = { 1.0, -1.0, -1.0,  1.0};
+float sa16 NNPP[4] = { 1.0,  1.0, -1.0, -1.0};
+    \end{lstlisting}
+
 \section{Split-8 Block} \indent
+
+	Numerical computation method has been discussed in section 2.4. It can be optimized further in a vector addition form:
+
+\begin{align*}
+v_1 &= \{X_{2_0}, W_8 X_{2_1}, -jX_{2_0}, -jW_8 X_{2_1}\}^T\\
+v_2 &= \{X_{3_0}, W^3_8 X_{3_1}, jX_{3_0}, jW^3_8 X_{3_1}\}^T
+\end{align*}
+\begin{align*}
+X_{0:3} &= X_1 + v_1 + v_1\\
+X_{4:7} &= X_1 - v_1 - v_2
+\end{align*}
+
+	Values for twiddle factors involved:
+
+\newcommand{\tsqft}{\frac{\sqrt{2}}{2}}
+\[\begin{split}
+	W_8 & = e^{-j\frac{2\pi}{8}} = \tsqft - j\tsqft\\
+	jW_8 & = je^{-j\frac{2\pi}{8}} = \tsqft + j\tsqft\\
+	W^3_8 & = e^{-j\frac{6\pi}{8}} = -\tsqft - j\tsqft = -jW_8\\
+	jW^3_8 & = je^{-j\frac{6\pi}{8}} = \tsqft - j\tsqft = W_8
+\end{split}\]
+
+\subsection{Arithmetic Flow} \indent
+
+	The input is divided to three parts: 
+
+\begin{itemize}
+	\item R0, R1, R2, R3; I0, I1, I2, I3 for $X_1$.
+	\item R4, R5; I4, I5 for $X_2$.
+	\item R6, R7; I6, I7 for $X_3$.
+\end{itemize}
+
+	The sum of $v_1$ and $v_2$, $V$, is computed first, then added to and subtracted from $X_1$.
+\begin{alltt}
+\centering
+n   <- 0.7071067812            \,
+
+VR3 <- -R5*n +I5*n +R7*n +I7*n \,
+VR1 <- +R5*n +I5*n -R7*n +I7*n \,
+VI3 <- -R5*n -I5*n -R7*n +I7*n \,
+VI1 <- -R5*n +I5*n -R7*n -I7*n \,
+
+VR2 <- +I4   -I6               \,
+VR0 <- +R4   +R6               \,
+VI2 <- -R4   +R6               \,
+VI0 <- +I4   +I6               \,
+
+R7  <- +R3 -VR3                \,
+R6  <- +R2 -VR2                \,
+R5  <- +R1 -VR1                \,
+R4  <- +R0 -VR0                \,
+R3  <- +R3 +VR3                \,
+R2  <- +R2 +VR2                \,
+R1  <- +R1 +VR1                \,
+R0  <- +R0 +VR0                \,
+
+I7  <- +I3 -VI3                \,
+I6  <- +I2 -VI2                \,
+I5  <- +I1 -VI1                \,
+I4  <- +I0 -VI0                \,
+I3  <- +I3 +VI3                \,
+I2  <- +I2 +VI2                \,
+I1  <- +I1 +VI1                \,
+I0  <- +I0 +VI0                \,
+\end{alltt}
+
+\subsection{SIMD Optimized Split-8} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+    __asm__ __volatile__
+    (
+        "movaps %2, %%xmm0                 \n"
+        "movaps %3, %%xmm1                 \n"
+        "pshufd $0b01010101, %%xmm0, %%xmm2\n"
+        "pshufd $0b01010101, %%xmm1, %%xmm3\n"
+        "mulps  %4, %%xmm2                 \n"
+        "mulps  %5, %%xmm3                 \n"
+        "addps  %%xmm3, %%xmm2             \n"
+        "pshufd $0b11111111, %%xmm0, %%xmm3\n"
+        "pshufd $0b11111111, %%xmm1, %%xmm4\n"
+        "mulps  %6, %%xmm3                 \n"
+        "mulps  %7, %%xmm4                 \n"
+        "addps  %%xmm3, %%xmm2             \n"
+        "addps  %%xmm4, %%xmm2             \n"
+        "mulps  %8, %%xmm2                 \n"
+        "shufps $0b10001000, %%xmm1, %%xmm0\n"
+        "pshufd $0b10000010, %%xmm0, %%xmm3\n"
+        "pshufd $0b11010111, %%xmm0, %%xmm1\n"
+        "mulps  %5, %%xmm3                 \n"
+        "mulps  %6, %%xmm1                 \n"
+        "subps  %%xmm1, %%xmm3             \n"
+        "movaps %%xmm3, %%xmm0             \n"
+        "punpckhdq %%xmm2, %%xmm0          \n"
+        "punpckldq %%xmm2, %%xmm3          \n"
+        "movaps %0, %%xmm1                 \n"
+        "movaps %1, %%xmm2                 \n"
+        "movaps %%xmm0, %%xmm4             \n"
+        "movaps %%xmm3, %%xmm5             \n"
+        "addps  %%xmm1, %%xmm4             \n"
+        "addps  %%xmm2, %%xmm5             \n"
+        "movaps %%xmm4, %0                 \n"
+        "movaps %%xmm5, %1                 \n"
+        "subps  %%xmm0, %%xmm1             \n"
+        "subps  %%xmm3, %%xmm2             \n"
+        "movaps %%xmm1, %2                 \n"
+        "movaps %%xmm2, %3                 \n"
+        : "+m"((re)[0]), "+m"((im)[0]),
+          "+m"((re)[4]), "+m"((im)[4])
+        : "m"(*NPNN), "m"(*PPNP), "m"(*PNNN), "m"(*PPPN), "m"(*VECN)
+        : "%xmm0", "%xmm1", "%xmm2", "%xmm3",
+          "%xmm4", "%xmm5", "%xmm6", "%xmm7" 
+    );
+    \end{lstlisting}
+
+\subsubsection{Definitions} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+#define sa16 static __attribute__ ((aligned(16)))
+float sa16 NPNN[4] = {-1.0, -1.0,  1.0, -1.0};
+float sa16 PPNP[4] = { 1.0, -1.0,  1.0,  1.0};
+float sa16 PNNN[4] = {-1.0, -1.0, -1.0,  1.0};
+float sa16 PPPN[4] = {-1.0,  1.0,  1.0,  1.0};
+float sa16 VECN[4] = {0.7071067812,  0.7071067812,  0.7071067812,  0.7071067812};
+    \end{lstlisting}
 
 \section{L-shaped Split Block} \indent
 
+
+	Numerical computation method has been shown as the butterfly diagram in section 2.3.3.
+
+\subsection{L-shaped Split Block in C} \indent
+
+	When computing the L-shaped Split, lots of trigonometric functions are called. The C standard library implementation of \textit{sin} and \textit{cos} are extremely slow for numerical computation. To speed up, I used look-up table method, which is to compute the \textit{sin} and \textit{cos} values and store them in large arrays before doing FFT:
+	
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+static void genw(float* re, float* im, float* re3, float* im3, int N)
+{
+    int k;
+    float omega = 2.0 * M_PI / (float)N;
+    
+    for(k = 0; k < N / 4; k ++)
+    {
+        re[k]  = + cos(omega * k);
+        im[k]  = - sin(omega * k);
+        re3[k] = + cos(omega * k * 3.0);
+        im3[k] = - sin(omega * k * 3.0);
+    }
+}
+    \end{lstlisting}
+    
+    This function is called in \textit{eefft\_init()} to generate look-up tables named in the following format:
+    
+\begin{alltt}
+\centering
+w_power_re
+w_power_im
+w_power_3re
+w_power_3im
+\end{alltt}
+    
+    The following code is the C implementation of Split block using look-up table method.
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+
+void split(float* re, float* im, float* w_re, float* w_im,
+    float* w_3re, float* w_3im, int N)
+{
+    int k;
+    float* x2_re, *x2_im, *x3_re, *x3_im;
+    float tmp_re, tmp_im;
+    
+    x2_re = re + N / 2;
+    x2_im = im + N / 2;
+    x3_re = re + 3 * N / 4;
+    x3_im = im + 3 * N / 4;
+    
+    for(k = 0; k < N / 4; k ++)
+    {
+        //X[k + N/2] <== X[k + N/2] * W_N^k
+        tmp_re   = x2_re[k] * w_re[k] - x2_im[k] * w_im[k];
+        x2_im[k] = x2_re[k] * w_im[k] + x2_im[k] * w_re[k];
+        x2_re[k] = tmp_re;
+        
+        //X[k + 3N/4] <== X[k + 3N/4] * W_N^{3k}
+        tmp_re   = x3_re[k] * w_3re[k] - x3_im[k] * w_3im[k];
+        x3_im[k] = x3_re[k] * w_3im[k] + x3_im[k] * w_3re[k];
+        x3_re[k] = tmp_re;
+        
+        //(no dependence)
+        //X[k + 3N/4] <== j(X[k + 3N/4] - X[k + N/2])
+        //X[k + N/2] <== X[k + N/2] + X[k + 3N/4]
+        tmp_re = x3_re[k];
+        tmp_im = x3_im[k];
+        x3_re[k] = - tmp_im + x2_im[k];
+        x3_im[k] = + tmp_re - x2_re[k];
+        x2_re[k] += tmp_re;
+        x2_im[k] += tmp_im;
+    }
+    for(k = 0; k < N / 2; k ++)
+    {
+        tmp_re = re[k];
+        tmp_im = im[k];
+        re[k] += x2_re[k];
+        im[k] += x2_im[k];
+        x2_re[k] = tmp_re - x2_re[k];
+        x2_im[k] = tmp_im - x2_im[k];
+    }
+}
+    \end{lstlisting}
+
+\subsection{SIMD Optimization with Macros} \indent
+
+	The SIMD optimized version is done in three parts: part A for multiplication with twiddle factors, part B for adding and subtracting on $X_1$, and part C for putting part A and B in for-loops.
+	
+	Before implementing the parts, a macro \textit{intpow(n)} for ``computing" the integer power of 2 in preprocessing step is written. The code is located at src/module.h .
+	
+\subsubsection{Part A} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+#define module_splitn_a(re, im, power, _k)\
+    __asm__ __volatile__ \
+    ( \
+        "movaps %0, %%xmm0                 \n" \
+        "movaps %1, %%xmm1                 \n" \
+        "movaps %%xmm0, %%xmm4             \n" \
+        "movaps %%xmm1, %%xmm5             \n" \
+        "mulps  %4, %%xmm4                 \n" \
+        "mulps  %5, %%xmm5                 \n" \
+        "mulps  %4, %%xmm1                 \n" \
+        "movaps %2, %%xmm2                 \n" \
+        "subps  %%xmm5, %%xmm4             \n" \
+        "mulps  %5, %%xmm0                 \n" \
+        "movaps %3, %%xmm3                 \n" \
+        "addps  %%xmm1, %%xmm0             \n" \
+        "movaps %%xmm2, %%xmm1             \n" \
+        "mulps  %6, %%xmm1                 \n" \
+        "movaps %%xmm3, %%xmm5             \n" \
+        "mulps  %7, %%xmm2                 \n" \
+        "mulps  %7, %%xmm5                 \n" \
+        "subps  %%xmm5, %%xmm1             \n" \
+        "mulps  %6, %%xmm3                 \n" \
+        "movaps %%xmm0, %%xmm5             \n" \
+        "addps  %%xmm3, %%xmm2             \n" \
+        "subps  %%xmm2, %%xmm5             \n" \
+        "movaps %%xmm1, %%xmm3             \n" \
+        "subps  %%xmm4, %%xmm3             \n" \
+        "movaps %%xmm5, %2                 \n" \
+        "addps  %%xmm1, %%xmm4             \n" \
+        "movaps %%xmm3, %3                 \n" \
+        "addps  %%xmm2, %%xmm0             \n" \
+        "movaps %%xmm4, %0                 \n" \
+        "movaps %%xmm0, %1                 \n" \
+        : "+m"((re)[intpow(power) / 2 + _k]),     \
+          "+m"((im)[intpow(power) / 2 + _k]),     \
+          "+m"((re)[intpow(power) / 4 * 3 + _k]), \
+          "+m"((im)[intpow(power) / 4 * 3 + _k])  \
+        : "m"(w_##power##_re[_k]), "m"(w_##power##_im[_k]),  \
+          "m"(w_##power##_3re[_k]), "m"(w_##power##_3im[_k]) \
+        : "%xmm0", "%xmm1", "%xmm2", "%xmm3", \
+          "%xmm4", "%xmm5", "%xmm6", "%xmm7"  \
+    )
+    \end{lstlisting}
+
+\subsubsection{Part B} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+#define module_splitn_b(re, im, power) \
+    __asm__ __volatile__ \
+    ( \
+        "movaps %0, %%xmm0                 \n" \
+        "movaps %2, %%xmm2                 \n" \
+        "movaps %1, %%xmm1                 \n" \
+        "movaps %3, %%xmm3                 \n" \
+        "addps  %%xmm0, %%xmm2             \n" \
+        "addps  %%xmm1, %%xmm3             \n" \
+        "subps  %2, %%xmm0                 \n" \
+        "subps  %3, %%xmm1                 \n" \
+        "movaps %%xmm0, %2                 \n" \
+        "movaps %%xmm1, %3                 \n" \
+        "movaps %%xmm2, %0                 \n" \
+        "movaps %%xmm3, %1                 \n" \
+        : "+m"((re)[0]),                 "+m"((im)[0]), \
+          "+m"((re)[intpow(power) / 2]), "+m"((im)[intpow(power) / 2]) \
+        : \
+        : "%xmm0", "%xmm1", "%xmm2", "%xmm3", \
+          "%xmm4", "%xmm5", "%xmm6", "%xmm7"  \
+    )
+    \end{lstlisting}
+
+\subsubsection{Part C} \indent
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+#define module_splitn(re, im, power) \
+    for(k = 0; k < intpow(power) / 4; k += 4) \
+    { \
+        module_splitn_a(re, im, power, k); \
+    } \
+    for(k = 0; k < intpow(power) / 2; k += 4) \
+    { \
+        module_splitn_b(re + k, im + k, power); \
+    } do {} while(0) /* to omit the compiler warning for an extra semicolon */
+    \end{lstlisting}
+    
 \section{Putting the Blocks Together} \indent
+
+	Blocks of \textit{ee-fft} are joined with macros. For example, the following codes build a 8-point fft without bit reverse from Radix-2, Radix-4, and Split-8 blocks:
+
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+#define fft_block_1(re, im) \
+    module_radix2(re, im)
+
+#define fft_block_2(re, im) \
+    module_radix4(re, im)
+
+#define fft_block_3(re, im) \
+    fft_block_1(re + intpow(3) / 2, im + intpow(3) / 2); \
+    fft_block_2(re, im); \
+    module_split8(re, im)
+    \end{lstlisting}
+
+	As mentioned in section 2.4, such complete unroll is bad for cache usage. So after reaching certain size of transform, the block is wrapped in a function:
+	
+    \lstset{language = c, tabsize = 4}
+    \begin{lstlisting}
+static void fft_block_5(float* re, float* im)
+{
+    int k;
+    fft_block_3(re + intpow(5) / 2, im + intpow(5) / 2);
+    fft_block_3(re + intpow(5) / 4 * 3, im + intpow(5) / 4 * 3);
+    fft_block_4(re, im);
+    module_splitn(re, im, 5);
+}
+    \end{lstlisting}
+	
+	It is found that on most modern processors, wrapping \textit{fft\_block\_5}, \textit{fft\_block\_6}, and \textit{fft\_block\_8} into functions will lead to optimal cache usage for transforms that are equal or less than 2048 points.
 
 \chapter{Evaluation and Review}
 
