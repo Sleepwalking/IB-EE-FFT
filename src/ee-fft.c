@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef EEFFT_TIMMING
+#include <sys/time.h>
+#endif
+
 #define sa16 static __attribute__ ((aligned(16)))
 
 float sa16 PNNN[4] = {-1.0, -1.0, -1.0,  1.0};
@@ -37,10 +41,64 @@ float sa16 buf_im[65536];
     func(4); func(5); func(6); func(7); \
     func(8); func(9); func(10); func(11)
 
+#define make_s(power) \
+    int sa16 shuffle_table_##power[intpow(power)]
+
+#define init_s(power) \
+    genshuffle(shuffle_table_##power, power)
+
+#define bitrev_12(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_12, intpow(12))
+#define bitrev_13(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_13, intpow(13))
+#define bitrev_14(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_14, intpow(14))
+#define bitrev_15(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_15, intpow(15))
+#define bitrev_16(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_16, intpow(16))
+
 loopcall(make_w);
+loopcall(make_s);
 
 #include "block.h"
 #include "bitrev.h"
+
+static void genshuffle(int* dst, int power)
+{
+    int N, i, j;
+    int tmp = 0x00000000;
+    
+    N = pow(2, power);
+    dst[0] = 0;
+    for(i = 0; i < N - 1; i ++)
+    {
+        j = power - 1;
+        while((tmp & (1 << j)) != 0)
+        {
+            tmp &= ~ (1 << j);
+            j --;
+        }
+        tmp |= (1 << j);
+        dst[i + 1] = tmp;
+    }
+}
+
+void bitrev_dynamic(float* dst, float* src, int* table, int size)
+{
+    int i;
+    for(i = 0; i < size; i += 8)
+    {
+        dst[i] = src[table[i]];
+        dst[i + 1] = src[table[i + 1]];
+        dst[i + 2] = src[table[i + 2]];
+        dst[i + 3] = src[table[i + 3]];
+        dst[i + 4] = src[table[i + 4]];
+        dst[i + 5] = src[table[i + 5]];
+        dst[i + 6] = src[table[i + 6]];
+        dst[i + 7] = src[table[i + 7]];
+    }
+}
 
 static void genw(float* re, float* im, float* re3, float* im3, int N)
 {
@@ -62,6 +120,7 @@ void eefft_init()
     for(i = 0; i < 4; i ++)
         VECN[i] = sqrt(2.0) / 2.0;
     loopcall(init_w);
+    loopcall(init_s);
 }
 
 #define defrev(n) \
@@ -77,7 +136,7 @@ static void bitrev(float* re, float* im, int power)
         defrev(1);
         defrev(2);
         defrev(3);
-        loopcall_11(defrev);
+        loopcall(defrev);
         default:
         break;
     }
@@ -99,11 +158,20 @@ void eefft_fft(float* dst_re, float* dst_im, float* src_re, float* src_im,
         defsprdx(1);
         defsprdx(2);
         defsprdx(3);
-        loopcall_11(defsprdx);
+        loopcall(defsprdx);
         default:
         break;
     }
     memcpy(dst_re, buf_re, pow(2, power) * 4);
     memcpy(dst_im, buf_im, pow(2, power) * 4);
 }
+
+#ifdef EEFFT_TIMMING
+double eefft_gettime()
+{
+    struct timeval t;
+    gettimeofday(&t, NULL);
+    return (t.tv_sec + (t.tv_usec / 1000000.0)) * 1000.0;
+}
+#endif
 

@@ -1,31 +1,107 @@
 #include "../ee-fft.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <fftw3.h>
 
-float a_re[1024];
-float a_im[1024];
-float b_re[1024];
-float b_im[1024];
+#define EEFFT 1
+#define FFTW  2
+
+#define FFTSIZE 2048
+#define FFTPOWR 11
+#define FFTLIB FFTW
+
+#define sa16 static __attribute__ ((aligned(16)))
+float sa16 dst_re[FFTSIZE];
+float sa16 dst_im[FFTSIZE];
+
+float* bufferlist_re[1000];
+float* bufferlist_im[1000];
+
+void init_rand()
+{
+    int i, j;
+    printf("Random initializing...\n");
+    for(i = 0; i < 1000; i ++)
+    {
+        bufferlist_re[i] = (float*)memalign(16, FFTSIZE * 4);
+        bufferlist_im[i] = (float*)memalign(16, FFTSIZE * 4);
+        for(j = 0; j < FFTSIZE; j ++)
+        {
+            bufferlist_re[i][j] = (float)rand() / RAND_MAX;
+            bufferlist_im[i][j] = (float)rand() / RAND_MAX;
+        }
+    }
+    printf("Initialized.\n");
+}
+
+fftwf_complex *fftw_in, *fftw_out;
+fftwf_plan fftw_p;
+void genericfft_init()
+{
+#if   FFTLIB == EEFFT
+    eefft_init();
+#elif FFTLIB == FFTW
+    fftw_in  = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * FFTSIZE);
+    fftw_out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * FFTSIZE);
+    fftw_p = fftwf_plan_dft_1d(FFTSIZE, fftw_in, fftw_out, FFTW_FORWARD,
+        FFTW_ESTIMATE);
+#endif
+}
+
+static void genericfft_fft(float* dre, float* dim, float* sre, float* sim,
+    int power, int size)
+{
+#if   FFTLIB == EEFFT
+    eefft_fft(dre, dim, sre, sim, power);
+#elif FFTLIB == FFTW
+    int i;
+    for(i = 0; i < FFTSIZE; i ++)
+    {
+        fftw_in[i][0] = sre[i];
+        fftw_in[i][1] = sim[i];
+    }
+    fftwf_execute(fftw_p);
+#endif
+}
+
 
 int main(void)
 {
-    eefft_init();
+    genericfft_init();
+    init_rand();
     
-    int i;
-    for(i = 0; i < 1024; i ++)
+    int i, j;
+    
+    double time1 = eefft_gettime();
+    
+    for(i = 0; i < 100; i ++)
     {
-        a_re[i] = sin(i);
-        a_im[i] = 0;
+        for(j = 0; j < 1000; j ++)
+            genericfft_fft(dst_re, dst_im,
+                bufferlist_re[j], bufferlist_im[j], FFTPOWR, FFTSIZE);
     }
     
-    //for(i = 0; i < 50; i ++)
-    //    printf("%f\n", sqrt(a_re[i] * a_re[i] + a_im[i] * a_im[i]));
-    for(i = 0; i < 100000; i ++)
-    eefft_fft(b_re, b_im, a_re, a_im, 10);
+    double time2 = eefft_gettime();
     
-    for(i = 0; i < 1024; i ++)
-        printf("%f\n", log(sqrt(b_re[i] * b_re[i] + b_im[i] * b_im[i])));
+#if FFTLIB == FFTW
+    for(i = 0; i < FFTSIZE; i ++)
+    {
+        dst_re[i] = fftw_out[i][0];
+        dst_im[i] = fftw_out[i][1];
+    }
+#endif
+    for(i = 0; i < 10; i ++)
+        printf("%f\n", log(sqrt(dst_re[i] * dst_re[i]
+                              + dst_im[i] * dst_im[i])));
     
+    double timecost_ms = (time2 - time1) / 100000.0;
+    printf("Total time cost: %f ms.\n", time2 - time1);
+    printf("Time cost for each %d-point complex fft: %f ms.\n", FFTSIZE,
+        timecost_ms);
+    printf("Speed: %f mflops.\n", 5 * FFTSIZE * log2(FFTSIZE) / timecost_ms
+        / 1000.0);
     return 0;
 }
 

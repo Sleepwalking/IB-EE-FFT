@@ -20,7 +20,10 @@ void eefft_fft(float* dst_re, float* dst_im, float* src_re, float* src_im,
 void eefft_ifft(float* dst_re, float* dst_im, float* src_re, float* src_im,
     int power);
 
+#define EEFFT_TIMMING
+#ifdef EEFFT_TIMMING
 double eefft_gettime();
+#endif
 
 #endif
 
