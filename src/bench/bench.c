@@ -3,14 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
+
 #include <fftw3.h>
+#include <ffts/ffts.h>
 
 #define EEFFT 1
 #define FFTW  2
+#define FFTS  3
 
-#define FFTSIZE 2048
-#define FFTPOWR 11
-#define FFTLIB FFTW
+#define FFTSIZE 1024
+#define FFTPOWR 10
+#define FFTLIB FFTS
 
 #define sa16 static __attribute__ ((aligned(16)))
 float sa16 dst_re[FFTSIZE];
@@ -38,6 +41,10 @@ void init_rand()
 
 fftwf_complex *fftw_in, *fftw_out;
 fftwf_plan fftw_p;
+ffts_plan_t* p;
+float sa16 ffts_in[FFTSIZE * 2];
+float sa16 ffts_out[FFTSIZE * 2];
+
 void genericfft_init()
 {
 #if   FFTLIB == EEFFT
@@ -47,6 +54,8 @@ void genericfft_init()
     fftw_out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * FFTSIZE);
     fftw_p = fftwf_plan_dft_1d(FFTSIZE, fftw_in, fftw_out, FFTW_FORWARD,
         FFTW_ESTIMATE);
+#elif FFTLIB == FFTS
+    p = ffts_init_1d(FFTSIZE, 1);
 #endif
 }
 
@@ -63,6 +72,14 @@ static void genericfft_fft(float* dre, float* dim, float* sre, float* sim,
         fftw_in[i][1] = sim[i];
     }
     fftwf_execute(fftw_p);
+#elif FFTLIB == FFTS
+    int i;
+    for(i = 0; i < FFTSIZE; i ++)
+    {
+        ffts_in[i * 2    ] = sre[i];
+        ffts_in[i * 2 + 1] = sim[i];
+    }
+    ffts_execute(p, ffts_in, ffts_out);
 #endif
 }
 
@@ -90,6 +107,12 @@ int main(void)
     {
         dst_re[i] = fftw_out[i][0];
         dst_im[i] = fftw_out[i][1];
+    }
+#elif FFTLIB == FFTS
+    for(i = 0; i < FFTSIZE; i ++)
+    {
+        dst_re[i] = ffts_out[i * 2];
+        dst_im[i] = ffts_out[i * 2 + 1];
     }
 #endif
     for(i = 0; i < 10; i ++)

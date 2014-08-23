@@ -1,7 +1,6 @@
 \documentclass[a4paper]{report}
 \usepackage{graphicx}
 \usepackage{listings}
-\usepackage{natbib}
 \usepackage{color}
 \usepackage{amsmath}
 \usepackage{alltt}
@@ -36,7 +35,7 @@
 
 \title{\Huge{Extended Essay} \\[2cm] \Large{Fast Fourier Transform Implementation on X86 Architecture with SIMD Optimization} \\[1cm]}
 \author{Kanru Hua \\[0.5cm] Shanghai Pinghe Bilingual School}
-\date{August 14, 2014}
+\date{August 23, 2014}
 \maketitle
 
 \newpage
@@ -46,9 +45,10 @@
 	Fast Fourier Transform(FFT), as an optimized algorithm and discrete version derived from Fourier Transform(FT), is widely used in the field of Engineering and Computer Science. %In most occasions, such transform can be understood as a change from time domain to frequency domain on a series of signal; the Fourier Transform of a time domain signal completely describes the frequency components of the signal.
 	Typical use of FFT involves data compression, audio/image processing, speech synthesis/recognization, digital communication and many other important applications.
 	
-	The purpose of this Extended Essay is to present a method to implement a highly optimized FFT routine library, which is named ee-fft. This library performs an 1024-point FFT in 0.01 millisecond on an Intel T7250 mobile processor. Although it is 30 percent slower than the world's fastest implementation, ee-fft is more light-weighted and is published under MIT License.
+	The purpose of this Extended Essay is to present a method to implement a highly optimized and light-weighted FFT routine library, which is named ee-fft.
 
-	%My choice of CPU architecture is x86 with SSE2 instruction set support since a vast majority of today's personal computer are compatible with such instruction sets.
+	The choice of CPU architecture is x86 with SSE2 instruction set support since a vast majority of today's personal computer are compatible with such instruction sets.
+	
 	In the first chapter I will start from listing several optimization techniques available on the chosen platform; chapter 2 will start with some background knowledge about FFT algorithms and then outline the structure of ee-fft; in chapter 3 I will describe each part of the implementation in detail; benchmark, evaluation, comparison and conclusion will be presented in chapter 4.
 
 \newpage
@@ -72,11 +72,11 @@
 
 \subsection{Registers} \indent
 
-	Registers in IA-32 Architecture consist of 8 general purpose registers(EAX, EBX, ECX, EDX, EDI, ESI, EBP, and ESP), 6 segment registers(CS, DS, SS, ES, FS, and GS), one flag register(EFLAGS), and one instruction pointer(EIP). Each general purpose register holds 32 bits of data for arithmetic or memory operation; each segment register holds 16 bits of data for memory management. (Intel, 3-10 Vol.1)
+	Registers in IA-32 Architecture consist of 8 general purpose registers(EAX, EBX, ECX, EDX, EDI, ESI, EBP, and ESP), 6 segment registers(CS, DS, SS, ES, FS, and GS), one flag register(EFLAGS), and one instruction pointer(EIP). Each general purpose register holds 32 bits of data for arithmetic or memory operation; each segment register holds 16 bits of data for memory management. \cite{inteldev}  %(Intel, 3-10 Vol.1)
 
 \subsection{Instruction Set} \indent
 
-	IA-32 instruction sets offer basic operations, for example, data transfer, program control, integer arithmetic, and other operations, on memory and general purpose registers. (Intel, 5-3 Vol.1)
+	IA-32 instruction sets offer basic operations, for example, data transfer, program control, integer arithmetic, and other operations, on memory and general purpose registers. \cite{inteldev}%(Intel, 5-3 Vol.1)
 	
 	However, IA-32 does not provide floating point operations, which are implemented in i486 and later architectures with FPU instruction set.
 
@@ -90,7 +90,7 @@
 
 	MMX is the first SIMD instruction set added as an IA-32 extension for packed integer arithmetics. Another major extension is SSE(Streaming SIMD Extensions), first introduced since Intel Pentium III, providing packed addition/multiplication/shuffling to up to 4 single-precison floating point values. Later, SSE2 extended such capability to integers and double-precision floating point values. Subsequent updates include SSE3, SSSE3, SSE4, AVX, FMA and AVX2, which are less common and will not be further discussed in this essay.
 
-	To expand storage space for intermediate values, SSE added eight 128-bit registers: XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, and XMM7. In 64-bit mode these are further expanded to XMM15.
+	To expand storage space for intermediate values, SSE added eight 128-bit registers: XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, and XMM7. In 64-bit mode these are further expanded to XMM15. \cite{inteldev}
 
 \paragraph{Vectorization} \indent \bigskip
 
@@ -218,7 +218,7 @@ process(dst + i, src1 + i, src2 + i, N_datasize - i);
 
 \subsubsection{Execution Core} \indent
 
-	Many latest CPUs has mutiple fetchers, decoders and even execution units. The decoders break down instructions into a chain of micro operations(or micro-ops), which are smaller and more specific instructions. The execution, data load and store parts are combined into an Execution Core, inside which are multiple ports that can execute different micro-ops in parallel. For instance, each Execution Core in Intel Core processors has six ports: data mover between registers, adder, multiplier, shifter/shuffler, data loader, and data storer. (Opt Manual, 2-14)
+	Many latest CPUs has mutiple fetchers, decoders and even execution units. The decoders break down instructions into a chain of micro operations(or micro-ops), which are smaller and more specific instructions. The execution, data load and store parts are combined into an Execution Core, inside which are multiple ports that can execute different micro-ops in parallel. For instance, each Execution Core in Intel Core processors has six ports: data mover between registers, adder, multiplier, shifter/shuffler, data loader, and data storer. \cite{intelopt} %(Opt Manual, 2-14)
 
 \subsubsection{Minimizing Dependences} \indent
 
@@ -233,7 +233,7 @@ process(dst + i, src1 + i, src2 + i, N_datasize - i);
 	\end{enumerate}
 \subsection{Branch Prediction} \indent
 
-	Branch Prediction is a technique used to maximize the usage of pipeline. Traditional pipeline fails to run parallel when a conditional or unconditional jump or call is met. To fix this problem, a Branch Prediction Unit(BPU), which predicts the destination of incoming jumps, calls and returns, is added to the instruction fetcher. (Opt Manual, 2-26)
+	Branch Prediction is a technique used to maximize the usage of pipeline. Traditional pipeline fails to run parallel when a conditional or unconditional jump or call is met. To fix this problem, a Branch Prediction Unit(BPU), which predicts the destination of incoming jumps, calls and returns, is added to the instruction fetcher. \cite{intelopt} %(Opt Manual, 2-26)
 	
 \subsubsection{Loop Unrolling} \indent
 	
@@ -277,7 +277,7 @@ for(; i < N; i ++)
 
 \subsection{Split Radix Fast Fourier Transform} \indent
 
-	Split Radix algorithm is an adaption of Cooley-Tukey FFT algorithm(Cooley, Tukey). Both of them reduce the time complexity to $O(n\;log(n))$. The former one further reduces the number of complex additions and multiplications.
+	Split Radix algorithm\cite{1984split} is an adaption of Cooley-Tukey FFT algorithm\cite{cooley}. Both of them reduce the time complexity to $O(n\;log(n))$. The former one further reduces the number of complex additions and multiplications.
 	
 	The key concept of those algorithms is ``Divide and Conquer". By Cooley-Tukey algorithm, the $O(n^2)$ problem is splited into two $O(\frac{n^2}{4})$ sub-problems and then splited into four $O(\frac{n^2}{16})$ sub-problems and so on, until the size of the bottom level transform reaches 2.
 
@@ -293,7 +293,7 @@ for(; i < N; i ++)
 
 	The following is derivation of Decimation-In-Time(DIT) Split Radix FFT as a background for the next chapter. Another form of Split Radix FFT is Decimation-In-Frequency(DIF). Their differences will be explained in section 2.3.2.
 	
-	This section is a summary of the reference articles. %Cite needed.
+	This section is a summary of the reference articles \cite{1984split} and \cite{douglas}.
 
 \subsection{Decimation In Time} \indent
 
@@ -1177,18 +1177,134 @@ static void fft_block_5(float* re, float* im)
 
 \subsection{Benchmark Method} \indent
 
+	Speeds of different transform size Ns of different FFT packages will be measured. The computation task is to transform 1000 random complex vectors of size N, and repeat such process by 100 times.
+	
+	The time consumption will be converted to MFLOPS(Million Floating Point Operation Per Second) by the following formula(fftw):
+	
+	\[\text{MFLOPS} = \frac{5Nlog_2N}{t}\]
+	
+	Where $t$ is the time for one FFT in milliseconds.
+	
+	Some FFT packages use AoS data structure as input and output, so a conversion step is necessary before each transform. But the conversion may cause time delay. To be fair, transforms by SoA packages are preceded by a loop that dumps the input to a AoS structure, which will not be actually used by SoA packages.
+
 \subsection{Platforms and Hardwares} \indent
+
+\begin{itemize}
+	\item Computer Model: Thinkpad T61
+	\item Processor: Intel T7250
+	\item Clock Speed: 2GHz
+	\item L2 Cache: 2MB
+	\item RAM: 1GB
+\end{itemize}
 
 \subsection{Softwares} \indent
 
+	Operating System: Debian7.1 32-bit
+
+\subsubsection{FFT Packages} \indent
+
+	All of the following packages are compiled with \texttt{CFLAGS="-msse -msse2 -mno-sse3 -mno-ssse3" FFLAGS="-msse -msse2 -mno-sse3 -mno-ssse3"}.
+
+\begin{itemize}
+	\item ee-fft
+	\item FFTW 3.3.4, the fastest open source FFT package on most platforms\cite{fftw}.
+	\item Ooura FFT, a commonly used FFT package by Takuya Ooura.
+	\item Kiss FFT, a small and efficient FFT package.
+	\item gsl\_fft, part of GNU Scientific Library(\texttt{gsl\_fft\_complex\_float\_radix2\_forward})
+\end{itemize}
+
 \subsection{Benchmark Result} \indent
+
+\begin{figure}[htp]
+\centering
+\includegraphics[scale=0.4]{bench.png}
+\caption{performance comparsion(single thread)}
+\end{figure}
+
+	Although \textit{ee-fft} is generally slower than \textit{FFTW3} by $20\%$ to $30\%$, it is much more light-weighted than \textit{FFTW3}. On T61 it takes minutes to compile \textit{FFTW3}, while \textit{ee-fft} takes only three seconds. However, \textit{ee-fft} currently only supports single-precision and single dimensional FFT of integer power of 2 sizes.
 
 \section{Improvements and Extensions} \indent
 
+\subsection{AoS Instead of SoA} \indent
+
+	I observed that most FFT packages use an AoS structure to store inputs and outputs. AoS may be better for data cache usage because real and imaginary parts of a number are packed together instead of stored separately in two arrays.
+
+\subsection{Newer SIMD Instruction Sets} \indent
+
+	SSE3 adds instructions designed for DSP uses and AoS data manipulation; AVX expands the registers to 256 bits and hence can process eight floating point values a time.
+
+\subsection{Porting to Other Platforms} \indent
+
+	Chapter 2 introduces a method to build FFT package by implementing several modules. \textit{ee-fft} can be ported by optimizing these modules for other architectures, for example, ARM, using Neon SIMD instruction set.
+
+\subsection{Alternative Butterfly Structures} \indent
+
+	The reference article\cite{extsplit} presents an alternative Split Radix that decomposes each DFT into a Radix-2 sub transform and a Radix-8 sub transform. It is proved that the extended Split Radix FFT saves 25\% load and store operations.
+
 \appendix
+
 \chapter{Source Code} \indent
 
-\chapter{Bibliography} \indent
+	The complete source code of \textit{ee-fft} as well as the \LaTeX \, document of this essay is published in my Github repository:
+	
+	\bigskip
+	https://github.com/Sleepwalking/IB-EE-FFT
+	\bigskip
 
+	The essay and diagrams are released under CC-BY-NC-ND 3.0; the source code is released under MIT License.
+	
+	\bigskip
+	
+	\textit{gcc} and \textit{cmake 2.8} are required to build \textit{ee-fft}.
+
+\clearpage
+\addcontentsline{toc}{chapter}{Bibliography}
+\begin{thebibliography}{9}
+
+\bibitem{1984split}
+  Duhamel, Pierre and Hollmann, Henk,
+  `` `Split radix' FFT algorithm".
+  \emph{Electronics Letters},
+  vol. 20, pp. 14-16,
+  1984.
+
+\bibitem{douglas}
+  Jones, Douglas L,
+  ``Split-radix FFT algorithms".
+  \emph{Connexions web site},
+  http://cnx.org/content/m12031/latest/,
+  Nov. 2006.
+
+\bibitem{cooley}
+  Cooley, James W and Tukey, John W,
+  ``An algorithm for the machine calculation of complex Fourier series".
+  \emph{Mathematics of Computation},
+  vol. 19, pp. 297-301,
+  Apr. 1965.
+
+\bibitem{fftw}
+  Frigo, Matteo, and Steven G. Johnson,
+  ``FFTW: An adaptive software architecture for the FFT".
+  \emph{Acoustics, Speech and Signal Processing, IEEE},
+  vol. 3, pp. 1381-1384,
+  1998.
+
+\bibitem{extsplit}
+  Takahashi, Daisuke,
+  ``An Extended Split-Radix FFT Algorithm".
+  \emph{Signal Processing Letters, IEEE},
+  vol. 8, pp. 145-147,
+  2001.
+
+\bibitem{inteldev}
+  ``Intel 64 and IA-32 Architectures Software Developer’s Manual".
+  \emph{Intel, Inc.},
+  2013.
+
+\bibitem{intelopt}
+  ``Intel 64 and IA-32 Architectures Optimization Reference Manual".
+  \emph{Intel, Inc.},
+  2013.
+
+\end{thebibliography}
 \end{document}
-
