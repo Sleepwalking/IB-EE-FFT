@@ -43,7 +43,7 @@
 \chapter*{Abstract} \indent
 
 	Fast Fourier Transform(FFT), as an optimized algorithm and discrete version derived from Fourier Transform(FT), is widely used in the field of Engineering and Computer Science. %In most occasions, such transform can be understood as a change from time domain to frequency domain on a series of signal; the Fourier Transform of a time domain signal completely describes the frequency components of the signal.
-	Typical use of FFT involves data compression, audio/image processing, speech synthesis/recognization, digital communication and many other important applications.
+	Typical use of FFT involves data compression, audio/image processing, speech synthesis/recognition, digital communication and many other important applications.
 	
 	The purpose of this Extended Essay is to present an implement method as well as to implement a highly optimized and light-weighted FFT routine library, which is named ee-fft.
 
@@ -88,7 +88,7 @@
 	
 	By contrast, SIMD(Single Instruction Multiple Data) instruction sets enable parallel operations on multiple data units during the execution of one instruction. Thus speed up the processing of data.
 
-	MMX is the first SIMD instruction set added as an IA-32 extension for packed integer arithmetics. Another major extension is SSE(Streaming SIMD Extensions), first introduced since Intel Pentium III, providing packed addition/multiplication/shuffling to up to 4 single-precison floating point values. Later, SSE2 extended such capability to integers and double-precision floating point values. Subsequent updates include SSE3, SSSE3, SSE4, AVX, FMA and AVX2, which are less common and will not be further discussed in this essay.
+	MMX is the first SIMD instruction set added as an IA-32 extension for packed integer arithmetics. Another major extension is SSE(Streaming SIMD Extensions), first introduced since Intel Pentium III, providing packed addition/multiplication/shuffling to up to 4 single-precision floating point values. Later, SSE2 extended such capability to integers and double-precision floating point values. Subsequent updates include SSE3, SSSE3, SSE4, AVX, FMA and AVX2, which are less common and will not be further discussed in this essay.
 
 	To expand storage space for intermediate values, SSE added eight 128-bit registers: XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, and XMM7. In 64-bit mode these are further expanded to XMM15. \cite{inteldev}
 
@@ -130,7 +130,7 @@ for(; i < N; i ++)
 
 \paragraph{Replacing FPU instructions} \indent \bigskip
 
-	Even for scalar arithmetics, i.e., single data is processed by each instruction, SSE is faster than equivalent FPU instructions. So SSE instructions for scalar operations are suggested to replace the FPU ones in most ocassions.
+	Even for scalar arithmetics, i.e., single data is processed by each instruction, SSE is faster than equivalent FPU instructions. So SSE instructions for scalar operations are suggested to replace the FPU ones in most occasions.
 
 \subsection{Cache} \indent
 
@@ -146,7 +146,7 @@ for(; i < N; i ++)
 
 	When an instruction accesses to a memory unit beyond the cache, a cache miss takes place. In such situations the processor has to pause execution until the memory content is loaded into the cache.
 	
-	Programmers have to optimize the codes to minimize cache misses, especially when processing over large amount of data. Consider the following senario:
+	Programmers have to optimize the codes to minimize cache misses, especially when processing over large amount of data. Consider the following scenario:
 	
 	After some processing procedures, two very large array of float values are multiplied and the results are stored in another array. Such process is repeated by thousands of times in each second.
 	
@@ -210,7 +210,7 @@ process(dst + i, src1 + i, src2 + i, N_datasize - i);
 		\item Write the result back into cache.
 	\end{enumerate}
 
-	On processors with instruction pipelines, the five steps are respectively completed by individual parts of the circuit. Theoretically up to five instructions can be processed simutaneously, if the five parts are used for successive instructions on different stages at the same time. So pipelining does not shorten the latency(in some ocassions it extends the latency) but increases the throughput of instructions.
+	On processors with instruction pipelines, the five steps are respectively completed by individual parts of the circuit. Theoretically up to five instructions can be processed simultaneously, if the five parts are used for successive instructions on different stages at the same time. So pipelining does not shorten the latency(in some occasions it extends the latency) but increases the throughput of instructions.
 
 	%TODO: I need a picture here.
 
@@ -218,7 +218,7 @@ process(dst + i, src1 + i, src2 + i, N_datasize - i);
 
 \subsubsection{Execution Core} \indent
 
-	Many latest CPUs has mutiple fetchers, decoders and even execution units. The decoders break down instructions into a chain of micro operations(or micro-ops), which are smaller and more specific instructions. The execution, data load and store parts are combined into an Execution Core, inside which are multiple ports that can execute different micro-ops in parallel. For instance, each Execution Core in Intel Core processors has six ports: data mover between registers, adder, multiplier, shifter/shuffler, data loader, and data storer. \cite{intelopt} %(Opt Manual, 2-14)
+	Many latest CPUs has multiple fetchers, decoders and even execution units. The decoders break down instructions into a chain of micro operations(or micro-ops), which are smaller and more specific instructions. The execution, data load and store parts are combined into an Execution Core, inside which are multiple ports that can execute different micro-ops in parallel. For instance, each Execution Core in Intel Core processors has six ports: data mover between registers, adder, multiplier, shifter/shuffler, data loader, and data storer. \cite{intelopt} %(Opt Manual, 2-14)
 
 \subsubsection{Minimizing Dependences} \indent
 
@@ -255,7 +255,7 @@ for(; i < N; i ++)
 	dst[i] = src1[i] * src2[i];
         \end{lstlisting}
 
-	When compiling C programs with an optimization flag, many compilers can automatically unroll the loops but in some ocassions manually unroll the loops yields faster programs, especially when combining loop unrolling with vectorization.
+	When compiling C programs with an optimization flag, many compilers can automatically unroll the loops but in some occasions manually unroll the loops yields faster programs, especially when combining loop unrolling with vectorization.
 
 	There is a trade-off between loop unrolling and cache miss rate. In the multiplication case, if N equals to 20000 and the loop is unrolled into two iterations of 10000 multiplications, the size of compiled binary may become larger than L1 instruction cache. So the optimized code may be even slower than the original one.
 
@@ -452,11 +452,11 @@ for(; i < N; i ++)
 
 	Decimation-In-Frequency FFT, in contrast, splits the transform from the right, i.e., the output side. The derivation method is generally same. Another difference is, the input is ordered but the output is out of order and has to be bit reversed.
 	
-	The total number of additions and multiplications for DIT and DIF are same. So I just arbitrarily chosed DIT.
+	The total number of additions and multiplications for DIT and DIF are same. So I just arbitrarily chose DIT.
 
 \subsection{In-place v.s. Out-of-place} \indent
 
-	In-place means the memory region for input is refilled by output after transformation; out-of-place means the output is dumpped into another region of memory.
+	In-place means the memory region for input is refilled by output after transformation; out-of-place means the output is dumped into another region of memory.
 	
 \subsubsection{Is it possible to do the whole transform in-place?} \indent
 
@@ -618,7 +618,7 @@ void bitrev(float* dst, float* src, int power)
 
 	The above code has lots of branches and loops that cause the program run very slow. One method to optimize this is to fully unroll the loop.
 	
-	The \textit{bitrev} function's behaviour only depends on \textit{Power}. So we can write multiple unrolled functions each corresponds to a certain input of \textit{Power}. The intuition is to write another program that is a ``Code Generator", which outputs the possibly very long and monotone process of unrolled \textit{bitrev} functions for each transform size.
+	The \textit{bitrev} function's behavior only depends on \textit{Power}. So we can write multiple unrolled functions each corresponds to a certain input of \textit{Power}. The intuition is to write another program that is a ``Code Generator", which outputs the possibly very long and monotone process of unrolled \textit{bitrev} functions for each transform size.
 	
 	For data transfer of single precision floating point values, SSE instruction \textbf{movss} can be used to replace IA-32 instruction \textbf{mov}. To further optimize, XMM registers are used in circulation:
 
@@ -701,7 +701,7 @@ I2 <- I2 + I3
 I3 <- I2 - I3
 \end{alltt}
 
-	SSE2 instruction \textbf{pshufd} provides a way to shuffle the ordered inputs to arbitrary ordered combination of four. The optimized version in gcc asssembly extension is:
+	SSE2 instruction \textbf{pshufd} provides a way to shuffle the ordered inputs to arbitrary ordered combination of four. The optimized version in gcc assembly extension is:
 
     \lstset{language = c, tabsize = 4}
     \begin{lstlisting}
@@ -1171,7 +1171,7 @@ static void fft_block_5(float* re, float* im)
 
 \chapter{Evaluation and Review} \indent
 
-	The performance of \textit{ee-fft} and serveral other FFT packages will be assessed. In the end, some possible ways to further improve \textit{ee-fft} will be pointed out.
+	The performance of \textit{ee-fft} and several other FFT packages will be assessed. In the end, some possible ways to further improve \textit{ee-fft} will be pointed out.
 
 \section{Benchmark} \indent
 
@@ -1218,7 +1218,7 @@ static void fft_block_5(float* re, float* im)
 \begin{figure}[htp]
 \centering
 \includegraphics[scale=0.4]{bench.png}
-\caption{performance comparsion(single thread)}
+\caption{performance comparison(single thread)}
 \end{figure}
 
 	Although \textit{ee-fft} is generally slower than \textit{FFTW3} by $20\%$ to $30\%$, it is much more light-weighted than \textit{FFTW3}. On T61 it takes minutes to compile \textit{FFTW3}, while \textit{ee-fft} takes only three seconds. However, \textit{ee-fft} currently only supports single-precision and single dimensional FFT of integer power of 2 sizes.
