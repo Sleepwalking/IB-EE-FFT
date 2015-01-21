@@ -34,12 +34,13 @@
 \begin{document}
 
 \title{\Huge{Extended Essay} \\[2cm] \Large{Fast Fourier Transform Implementation on X86 Architecture with SIMD Optimization} \\[1cm]}
-\author{Kanru Hua \\[0.5cm] Shanghai Pinghe Bilingual School}
-\date{August 23, 2014}
+\author{Kanru Hua \\[0.5cm] Shanghai Pinghe School}
+\date{January 21, 2015 \\[1cm] (word count: 3801)}
 \maketitle
 
 \newpage
 
+\pagenumbering{Roman}
 \chapter*{Abstract} \indent
 
 	Fast Fourier Transform(FFT), as an optimized algorithm and discrete version derived from Fourier Transform(FT), is widely used in the field of Engineering and Computer Science. %In most occasions, such transform can be understood as a change from time domain to frequency domain on a series of signal; the Fourier Transform of a time domain signal completely describes the frequency components of the signal.
@@ -50,12 +51,16 @@
 	The choice of CPU architecture is x86 with SSE2 instruction set support since a vast majority of today's personal computer are compatible with such instruction sets.
 	
 	In the first chapter I will start from listing several optimization techniques available on the chosen platform; chapter 2 will start with some background knowledge about FFT algorithms and then outline the structure of ee-fft; in chapter 3 I will describe each part of the implementation in detail; benchmark, evaluation, comparison and conclusion will be presented in chapter 4.
+	
+	\hfill (165 words)
 
 \newpage
 \tableofcontents
 
 \newpage
 
+\pagenumbering{arabic}
+\setcounter{page}{1}
 \chapter{Optimization Techniques on X86 with SIMD Support} \indent
 
 	X86 processor family involves a range of models from the earliest Intel 8086 to the newest Intel Haswell, Xeon and compatible AMD series. In this essay X86 refers to 32 or 64-bit X86 processors with at least FPU, MMX, SSE and SSE2 instruction set support, which are the most common models in modern personal computers.
@@ -411,7 +416,7 @@ for(; i < N; i ++)
 	\item $DFT_{4}\{x_{4n+1}\}$ is splited into $DFT_{2}\{x_{8n+1}\}$, $x_5$, and $x_{13}$.
 	\item $DFT_{4}\{x_{4n+3}\}$ is splited into $DFT_{2}\{x_{8n+3}\}$, $x_7$, and $x_{15}$.
 	\item $DFT_{4}\{x_{4n}\}$ is splited into $DFT_{2}\{x_{8n}\}$, $x_4$, and $x_{12}$.
-	\item 2-sized DFTs cannot be splited further by Split Radix but can still be splited by DFT:
+	\item 2-sized DFTs can be directly computed.
 	\item $DFT_{2}\{x_{8n+2}\}$ can be merged from $x_2$ and $x_{10}$.
 	\item $DFT_{2}\{x_{8n+6}\}$ can be merged from $x_6$ and $x_{14}$.
 	\item $DFT_{2}\{x_{8n+1}\}$ can be merged from $x_1$ and $x_{9}$.
@@ -440,7 +445,7 @@ for(; i < N; i ++)
 
 \section{Points to Consider} \indent
 
-	Before coding, some details have to be considered to trade off between performance and features.
+	Before coding, some details have to be considered concerning the trade off between performance, quality and flexibility.
 
 \subsection{Transform Dimension and Precision} \indent
 
@@ -456,11 +461,11 @@ for(; i < N; i ++)
 
 \subsection{In-place v.s. Out-of-place} \indent
 
-	In-place means the memory region for input is refilled by output after transformation; out-of-place means the output is dumped into another region of memory.
+	In-place means the memory region for input is refilled by output after transformation; out-of-place means the output is dumped into another region of memory. We expect that the whole transform can be operated in-place because this makes better use of cache and saves memory resources.
 	
 \subsubsection{Is it possible to do the whole transform in-place?} \indent
 
-	The answer is true.
+	The answer is yes.
 	
 	\bigskip
 	
@@ -1261,20 +1266,6 @@ static void fft_block_5(float* re, float* im)
 \addcontentsline{toc}{chapter}{Bibliography}
 \begin{thebibliography}{9}
 
-\bibitem{1984split}
-  Duhamel, Pierre and Hollmann, Henk,
-  `` `Split radix' FFT algorithm".
-  \emph{Electronics Letters},
-  vol. 20, pp. 14-16,
-  1984.
-
-\bibitem{douglas}
-  Jones, Douglas L,
-  ``Split-radix FFT algorithms".
-  \emph{Connexions web site},
-  http://cnx.org/content/m12031/latest/,
-  Nov. 2006.
-
 \bibitem{cooley}
   Cooley, James W and Tukey, John W,
   ``An algorithm for the machine calculation of complex Fourier series".
@@ -1282,12 +1273,26 @@ static void fft_block_5(float* re, float* im)
   vol. 19, pp. 297-301,
   Apr. 1965.
 
+\bibitem{1984split}
+  Duhamel, Pierre and Hollmann, Henk,
+  `` `Split radix' FFT algorithm".
+  \emph{Electronics Letters},
+  vol. 20, pp. 14-16,
+  1984.
+
 \bibitem{fftw}
   Frigo, Matteo, and Steven G. Johnson,
   ``FFTW: An adaptive software architecture for the FFT".
   \emph{Acoustics, Speech and Signal Processing, IEEE},
   vol. 3, pp. 1381-1384,
   1998.
+
+\bibitem{douglas}
+  Jones, Douglas L,
+  ``Split-radix FFT algorithms".
+  \emph{Connexions web site},
+  http://cnx.org/content/m12031/latest/,
+  Nov. 2006.
 
 \bibitem{extsplit}
   Takahashi, Daisuke,
