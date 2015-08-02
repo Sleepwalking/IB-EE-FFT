@@ -19,8 +19,8 @@ float sa16 PPNP[4] = { 1.0, -1.0,  1.0,  1.0};
 float sa16 PPPN[4] = {-1.0,  1.0,  1.0,  1.0};
 float sa16 VECN[4];
 
-float sa16 buf_re[65536];
-float sa16 buf_im[65536];
+float sa16 buf_re[intpow(21)];
+float sa16 buf_im[intpow(21)];
 
 #define make_w(power) \
     float sa16 w_##power##_re[intpow(power) / 4]; \
@@ -35,7 +35,9 @@ float sa16 buf_im[65536];
 #define loopcall(func) \
     func(4); func(5); func(6); func(7); \
     func(8); func(9); func(10); func(11); \
-    func(12); func(13); func(14); func(15); func(16)
+    func(12); func(13); func(14); func(15); \
+    func(16); func(17); func(18); func(19); \
+    func(20); func(21)
 
 #define loopcall_11(func) \
     func(4); func(5); func(6); func(7); \
@@ -57,6 +59,16 @@ float sa16 buf_im[65536];
     bitrev_dynamic(dst, src, shuffle_table_15, intpow(15))
 #define bitrev_16(dst, src) \
     bitrev_dynamic(dst, src, shuffle_table_16, intpow(16))
+#define bitrev_17(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_17, intpow(17))
+#define bitrev_18(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_18, intpow(18))
+#define bitrev_19(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_19, intpow(19))
+#define bitrev_20(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_20, intpow(20))
+#define bitrev_21(dst, src) \
+    bitrev_dynamic(dst, src, shuffle_table_21, intpow(21))
 
 loopcall(make_w);
 loopcall(make_s);
@@ -162,6 +174,38 @@ void eefft_fft(float* dst_re, float* dst_im, float* src_re, float* src_im,
         default:
         break;
     }
+    memcpy(dst_re, buf_re, pow(2, power) * 4);
+    memcpy(dst_im, buf_im, pow(2, power) * 4);
+}
+
+void eefft_ifft(float* dst_re, float* dst_im, float* src_re, float* src_im,
+    int power)
+{
+    int k, i, N;
+    float rcp;
+    N = pow(2, power);
+    rcp = 1.0 / N;
+    bitrev(src_re, src_im, power);
+    
+    for(i = 0; i < N; i ++)
+        buf_im[i] *= -1;
+    
+    switch(power)
+    {
+        defsprdx(1);
+        defsprdx(2);
+        defsprdx(3);
+        loopcall(defsprdx);
+        default:
+        break;
+    }
+    
+    for(i = 0; i < N; i ++)
+    {
+        buf_re[i] *= rcp;
+        buf_im[i] *= rcp;
+    }
+    
     memcpy(dst_re, buf_re, pow(2, power) * 4);
     memcpy(dst_im, buf_im, pow(2, power) * 4);
 }

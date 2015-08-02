@@ -13,7 +13,7 @@
 
 #define FFTSIZE 1024
 #define FFTPOWR 10
-#define FFTLIB FFTS
+#define FFTLIB FFTW
 
 #define sa16 static __attribute__ ((aligned(16)))
 float sa16 dst_re[FFTSIZE];
@@ -123,6 +123,7 @@ int main(void)
     printf("Total time cost: %f ms.\n", time2 - time1);
     printf("Time cost for each %d-point complex fft: %f ms.\n", FFTSIZE,
         timecost_ms);
+    printf("%d %d-point complex ffts per second.\n", (int)(1 / timecost_ms * 1000), FFTSIZE);
     printf("Speed: %f mflops.\n", 5 * FFTSIZE * log2(FFTSIZE) / timecost_ms
         / 1000.0);
     return 0;

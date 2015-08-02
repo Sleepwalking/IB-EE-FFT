@@ -192,5 +192,50 @@ static void fft_block_14(float* re, float* im)
     module_splitn(re, im, 14);
 }
 
+static void fft_block_17(float* re, float* im)
+{
+    int k;
+    fft_block_15(re + intpow(17) / 2, im + intpow(17) / 2);
+    fft_block_15(re + intpow(17) / 4 * 3, im + intpow(17) / 4 * 3);
+    fft_block_16(re, im);
+    module_splitn(re, im, 17);
+}
+
+static void fft_block_18(float* re, float* im)
+{
+    int k;
+    fft_block_16(re + intpow(18) / 2, im + intpow(18) / 2);
+    fft_block_16(re + intpow(18) / 4 * 3, im + intpow(18) / 4 * 3);
+    fft_block_17(re, im);
+    module_splitn(re, im, 18);
+}
+
+static void fft_block_19(float* re, float* im)
+{
+    int k;
+    fft_block_17(re + intpow(19) / 2, im + intpow(19) / 2);
+    fft_block_17(re + intpow(19) / 4 * 3, im + intpow(19) / 4 * 3);
+    fft_block_18(re, im);
+    module_splitn(re, im, 19);
+}
+
+static void fft_block_20(float* re, float* im)
+{
+    int k;
+    fft_block_18(re + intpow(20) / 2, im + intpow(20) / 2);
+    fft_block_18(re + intpow(20) / 4 * 3, im + intpow(20) / 4 * 3);
+    fft_block_19(re, im);
+    module_splitn(re, im, 20);
+}
+
+static void fft_block_21(float* re, float* im)
+{
+    int k;
+    fft_block_19(re + intpow(21) / 2, im + intpow(21) / 2);
+    fft_block_19(re + intpow(21) / 4 * 3, im + intpow(21) / 4 * 3);
+    fft_block_20(re, im);
+    module_splitn(re, im, 21);
+}
+
 #endif
 

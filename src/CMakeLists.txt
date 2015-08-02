@@ -15,7 +15,7 @@ aux_source_directory(./bench BENCH_SRC_LIST)
 add_executable(bench-fft ${BENCH_SRC_LIST})
 target_link_libraries(bench-fft ee-fft)
 target_link_libraries(bench-fft m)
-target_link_libraries(bench-fft fftw3k)
+target_link_libraries(bench-fft fftw3f)
 target_link_libraries(bench-fft ffts)
 
 aux_source_directory(./gen GEN_SRC_LIST)

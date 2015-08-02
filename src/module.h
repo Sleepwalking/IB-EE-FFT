@@ -17,6 +17,11 @@
 #define _pow_14 16384
 #define _pow_15 32768
 #define _pow_16 65536
+#define _pow_17 131072
+#define _pow_18 262144
+#define _pow_19 524288
+#define _pow_20 1048576
+#define _pow_21 2097152
 
 //xmm7: NPNP = {1.0, -1.0, 1.0, -1.0}
 #define module_radix2(re, im) \
