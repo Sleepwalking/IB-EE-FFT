@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast -fPIC -march=core2 -mno-sse3 -L/home/sleepwalking/Documents/IB-EE-FFT/build")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast -fPIC -march=core2")
 
 aux_source_directory(./ SRC_LIST)
 add_library(ee-fft STATIC ${SRC_LIST})

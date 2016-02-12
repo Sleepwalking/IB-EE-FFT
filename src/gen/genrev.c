@@ -33,8 +33,10 @@ void bitrev_genstatic_asm(int power, char* name)
     printf("{\n");
     printf("    __asm__ __volatile__\n");
     printf("    (\n");
-    printf("        \"movss %%1, %%%%xmm0\\n\"\n");
-    printf("        \"movss %%%%xmm0, %%0\\n\"\n");
+    printf("        \"mov %%0, %%%%rsi\\n\"\n");
+    printf("        \"mov %%1, %%%%rdi\\n\"\n");
+    printf("        \"movss (%%%%rdi), %%%%xmm0\\n\"\n");
+    printf("        \"movss %%%%xmm0, (%%%%rsi)\\n\"\n");
     
     for(i = 0; i < N - 1; i ++)
     {
@@ -46,13 +48,13 @@ void bitrev_genstatic_asm(int power, char* name)
         }
         tmp |= (1 << j);
         
-        printf("        \"movss %d%%1, %%%%xmm%d\\n\"\n", tmp * 4, i % 8);
-        printf("        \"movss %%%%xmm%d, %d%%0\\n\"\n", i % 8, i * 4 + 4);
+        printf("        \"movss %d(%%%%rdi), %%%%xmm%d\\n\"\n", tmp * 4, i % 8);
+        printf("        \"movss %%%%xmm%d, %d(%%%%rsi)\\n\"\n", i % 8, i * 4 + 4);
     }
-    printf("    : \"+m\"(*dst)\n");
-    printf("    : \"m\"(*src)\n");
+    printf("    : \"+m\"(dst)\n");
+    printf("    : \"m\"(src)\n");
     printf("    : \"%%xmm0\", \"%%xmm1\", \"%%xmm2\", \"%%xmm3\", \"%%xmm4\", "
-                 "\"%%xmm5\", \"%%xmm6\", \"%%xmm7\"\n");
+                 "\"%%xmm5\", \"%%xmm6\", \"%%xmm7\", \"%%rsi\", \"%%rdi\"\n");
     printf("    );\n");
     printf("}\n");
 }
